@@ -2,15 +2,14 @@
 
 Этот проект использует Docker для запуска и управления зависимостями. Следуйте инструкциям ниже, чтобы настроить и запустить проект.
 
-## Предварительные требования
-
-- Установленный [Docker](https://www.docker.com/get-started)
-- Установленный [Docker Compose](https://docs.docker.com/compose/install/)
 
 ## Клонирование репозитория
 
 Клонируйте этот репозиторий и перейдите в директорию проекта:
 
 ```bash
-git clone <URL вашего репозитория>
-cd <имя папки с вашим проектом>
+git clone https://github.com/LabbayHizmatda/-Backend-.git
+cd static
+
+## код для запуска Docker
+docker-compose up --build
