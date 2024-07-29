@@ -2,7 +2,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import RegisterView
 
 from django.urls import path, include
-from .views import UserViewSet, PassportViewSet, BankCardViewSet, CvViewSet, CategoryViewSet, JobViewSet, OrderViewSet, ProposalViewSet, ProposalUpdateStatusView
+from .views import UserViewSet, PassportViewSet, BankCardViewSet, CvViewSet, CategoryViewSet, JobViewSet, OrderViewSet, ProposalViewSet, ProposalUpdateStatusView, AppealViewSet, ReviewViewSet
 
 from rest_framework.routers import DefaultRouter
 
@@ -15,6 +15,8 @@ router.register(r'categories', CategoryViewSet)
 router.register(r'orders', OrderViewSet)
 router.register(r'proposals', ProposalViewSet)
 router.register(r'jobs', JobViewSet)
+router.register(r'appeals', AppealViewSet)
+router.register(r'reviews', ReviewViewSet)
 
 urlpatterns = [
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

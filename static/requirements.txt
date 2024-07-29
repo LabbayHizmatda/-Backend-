@@ -3,3 +3,4 @@ djangorestframework
 djangorestframework-simplejwt
 psycopg2-binary
 drf-yasg
+django-silk

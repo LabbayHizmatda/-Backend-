@@ -36,4 +36,9 @@ class JobStatusChoices(models.TextChoices):
     INPROGRESS = "in_progress", "In Progress"
     PAYMENT = "payment", "Payment"
     WARNING = "warning", "Warning"
+    REVIEW = "review", "Review"
     Completed = "completed", "Completed"
+
+class AppealTypeChoices(models.TextChoices):
+    PAYMENT = 'Payment', 'Оплата'
+    JOB = 'Job', 'Работа'

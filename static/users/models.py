@@ -2,7 +2,7 @@ from django.core.validators import MinValueValidator
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.core.exceptions import ValidationError
-from .status import RoleChoices, LanguageChoices, JobStatusChoices, OrderStatusChoices, ProposalStatusChoices, RatingChoices
+from .status import RoleChoices, LanguageChoices, JobStatusChoices, OrderStatusChoices, ProposalStatusChoices, RatingChoices, AppealTypeChoices
 from datetime import timezone
 from django.contrib.postgres.fields import ArrayField
 
@@ -31,11 +31,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     user_id = models.BigIntegerField(unique=True)
     first_name = models.CharField(max_length=30, blank=True)
     last_name = models.CharField(max_length=30, blank=True)
-    roles = ArrayField(
-        models.CharField(max_length=20, choices=RoleChoices.choices),
-        blank=True,
-        default=list,
-    )
+    roles = ArrayField(models.CharField(max_length=20, choices=RoleChoices.choices), blank=True, default=list)
     phone_number = models.CharField(max_length=14, blank=True, null=True, unique=True)
     language = models.CharField(max_length=20, choices=LanguageChoices.choices, blank=True)
     birth_date = models.DateField(null=True, blank=True)
@@ -54,12 +50,16 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
     
+    @property
+    def cv(self):
+        return Cv.objects.get(user=self)
+    
     def __str__(self):
         return str(self.user_id)
 
 
 class Passport(models.Model):
-    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='passports')
+    owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='passports')
     series = models.CharField(max_length=4, null=True, blank=True)
     number = models.CharField(max_length=6, null=True, blank=True) 
     date_of_issue = models.DateField()  # Дата выдачи паспорта
@@ -83,7 +83,7 @@ class Passport(models.Model):
 
 # only for Role.Worker
 class BankCard(models.Model):
-    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='bank_card')
     holder_name = models.CharField(max_length=255)
     card_number = models.BigIntegerField(
         validators=[MinValueValidator(1000000000000000)],
@@ -97,7 +97,7 @@ class BankCard(models.Model):
 
 # only for Role.Worker
 class Cv(models.Model):
-    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='cv')
     image = models.CharField(max_length=255, blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     rating = models.CharField(max_length=1, choices=RatingChoices.choices)
@@ -131,7 +131,7 @@ class Order(models.Model):
 # only for Role.Worker
 class Proposal(models.Model):
     owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='proposals', default=None)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='proposals', default='')
     message = models.TextField()
     price = models.CharField(max_length=50)
     status = models.CharField(max_length=10, choices=ProposalStatusChoices.choices, default=ProposalStatusChoices.WAITING)
@@ -149,10 +149,6 @@ class Job(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     assignee = models.ForeignKey('CustomUser', on_delete=models.SET_NULL, null=True, related_name='assigned_jobs')
-    rating = models.CharField(max_length=1, choices=RatingChoices.choices, null=True, blank=True)
-    review = models.TextField(null=True, blank=True)
-    job_appeal = models.TextField(null=True, blank=True)
-    payment_appeal = models.TextField(null=True, blank=True)
     status_history = models.TextField(null=True, blank=True)
 
     def __str__(self):
@@ -165,3 +161,24 @@ class Job(models.Model):
                 self.status_history = f"{timezone.now()}: {self.get_status_display()} -> {self.status}\n" + (self.status_history or "")
         super().save(*args, **kwargs)
 
+
+class Review(models.Model):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='reviews')
+    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    whom = models.ForeignKey(Cv, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.CharField(max_length=1, choices=RatingChoices.choices)
+    comment = models.TextField(null=True)
+
+    def __str__(self):
+        return f"Review by {self.owner} for {self.whom} - Rating: {self.rating}"
+
+
+class Appeal(models.Model):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="appeals")
+    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    whom = models.ForeignKey(Cv, on_delete=models.CASCADE, related_name='appeals')
+    problem = models.TextField(null=True)
+    to = models.CharField(max_length=20, choices=AppealTypeChoices.choices)
+
+    def __str__(self):
+        return f"Appeal for Job {self.job_id.id} - To: {self.to}"

@@ -1,8 +1,9 @@
 from rest_framework import generics, viewsets, mixins, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import get_user_model
-from .models import Passport, BankCard, Cv, Category, Order, Proposal, Job
-from .serializers import UserSerializer, PassportSerializer, BankCardSerializer, CvSerializer, CategorySerializer, OrderSerializer, ProposalSerializer, JobSerializer
+from .models import Passport, BankCard, Cv, Category, Order, Proposal, Job, Appeal, Review
+from .serializers import UserSerializer, PassportSerializer, BankCardSerializer, CvSerializer, CategorySerializer, \
+                        OrderSerializer, ProposalSerializer, JobSerializer, AppealSerializer, ReviewSerializer
 from .permissions import IsAdmin
 from rest_framework.response import Response
 from django.db.models import Q
@@ -14,7 +15,7 @@ User = get_user_model()
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = (AllowAny, )
+    permission_classes = (AllowAny,)
 
 
 class UserViewSet(mixins.RetrieveModelMixin,
@@ -22,7 +23,8 @@ class UserViewSet(mixins.RetrieveModelMixin,
                   mixins.DestroyModelMixin,
                   mixins.ListModelMixin,
                   viewsets.GenericViewSet):
-    queryset = User.objects.all() 
+
+    queryset = User.objects.select_related('bank_card', 'cv').all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
@@ -45,7 +47,7 @@ class PassportViewSet(viewsets.ModelViewSet):
             return Passport.objects.all()
         else:
             return Passport.objects.filter(owner=user)
-    
+
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
@@ -57,7 +59,7 @@ class BankCardViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if 'Admin' in user.roles:  
+        if 'Admin' in user.roles:
             return BankCard.objects.all()
         else:
             return BankCard.objects.filter(owner=user)
@@ -75,7 +77,7 @@ class CvViewSet(viewsets.ModelViewSet):
     queryset = Cv.objects.all()
     serializer_class = CvSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         user = self.request.user
         if 'Admin' in user.roles:
@@ -83,10 +85,10 @@ class CvViewSet(viewsets.ModelViewSet):
         else:
             return Cv.objects.filter(owner=user)
         
-    def create(self, request, *args, **kwargs):
-        if 'Worker' not in request.user.roles:
-            return Response({"detail": "Резюме может создать только человек с ролю Worker."}, status=status.HTTP_403_FORBIDDEN)
-        return super().create(request, *args, **kwargs)
+    # def create(self, request, *args, **kwargs):
+    #     if 'Worker' not in request.user.roles:
+    #         return Response({"detail": "Резюме может создать только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
+    #     return super().create(request, *args, **kwargs)
     
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -103,12 +105,12 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Order.objects.all()
         else:
             return Order.objects.filter(owner=user)
-
+        
     def create(self, request, *args, **kwargs):
         if 'Customer' not in request.user.roles:
             return Response({"detail": "Заказ может создать только человек с ролью Customer."}, status=status.HTTP_403_FORBIDDEN)
         return super().create(request, *args, **kwargs)
-
+        
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
@@ -145,7 +147,6 @@ class ProposalUpdateStatusView(generics.UpdateAPIView):
     queryset = Proposal.objects.all()
     serializer_class = ProposalSerializer
     permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -158,7 +159,7 @@ class ProposalUpdateStatusView(generics.UpdateAPIView):
             return Response(serializer.data)
         else:
             return Response({"detail": "No Proposal matches the given query."}, status=status.HTTP_404_NOT_FOUND)
-
+        
 
 class JobViewSet(viewsets.ModelViewSet):
     queryset = Job.objects.all()
@@ -167,12 +168,51 @@ class JobViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return Job.objects.filter(
-            Q(proposal__owner=user) | Q(order__owner=user)
-        )
-
+        if 'Admin' in user.roles:
+            return Job.objects.all()
+        else:
+            return Job.objects.filter(Q(proposal__owner=user) | Q(order__owner=user))
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated, IsAdmin]
+
+
+class ReviewViewSet(viewsets.ModelViewSet):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if 'Admin' in user.roles:
+            return Review.objects.all()
+        else:
+            return Review.objects.filter(Q(owner=user) | Q(whom=user))
+
+    def create(self, request, *args, **kwargs):
+        user = self.request.user
+        job = request.data.get('job')
+
+        if Review.objects.filter(owner=user, job=job).exists():
+            return Response({"detail": "Вы уже оставили отзыв на эту работу."}, status=status.HTTP_400_BAD_REQUEST)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+
+class AppealViewSet(viewsets.ModelViewSet):
+    queryset = Appeal.objects.all()
+    serializer_class = AppealSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if 'Admin' in user.roles:
+            return Appeal.objects.all()
+        else:
+            return Appeal.objects.filter(job__proposal__owner=user)
+        
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)

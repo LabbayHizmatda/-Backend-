@@ -1,23 +1,89 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job
-from .status import RoleChoices
-
+from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job, Appeal, Review
+from .status import RoleChoices, RatingChoices
 
 User = get_user_model()
 
+
+class BankCardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankCard
+        fields = '__all__'
+        extra_kwargs = {
+            'owner': {'read_only': True} 
+        }
+
+class ReviewSerializer(serializers.ModelSerializer):
+    rating = serializers.ChoiceField(choices=RatingChoices.choices, required=False)
+    job = serializers.PrimaryKeyRelatedField(queryset=Job.objects.all())
+
+    class Meta:
+        model = Review
+        fields = ['id', 'owner', 'whom', 'comment', 'rating', 'job']
+        extra_kwargs = {
+            'owner': {'read_only': True},
+            'whom': {'read_only': True}
+        }
+
+    def create(self, validated_data):
+        request = self.context['request']
+        user = request.user
+        job = validated_data.get('job')
+
+        # Determine the recipient user based on the role
+        if 'Customer' in user.roles:
+            recipient_user = job.proposal.owner
+        elif 'Worker' in user.roles:
+            recipient_user = job.order.owner
+        else:
+            raise serializers.ValidationError("User must be either a Customer or a Worker to create a review.")
+        
+        # Retrieve the Cv instance associated with the recipient user
+        try:
+            whom = Cv.objects.get(owner=recipient_user)  # Use the actual field name
+        except Cv.DoesNotExist:
+            raise serializers.ValidationError("Cv instance for the recipient user does not exist.")
+        
+        validated_data['owner'] = user
+        validated_data['whom'] = whom
+        
+        return super().create(validated_data)
+    
+    def to_representation(self, instance):
+        # Exclude 'owner' and 'whom' fields from the serialized output
+        representation = super().to_representation(instance)
+        request = self.context['request']
+        
+        if request.method == 'GET':
+            representation.pop('owner', None)
+        
+        return representation
+
+
+
+
+class CvSerializer(serializers.ModelSerializer):
+    reviews = ReviewSerializer(many=True, read_only=True)  # Use many=True since it's a reverse relation
+
+    class Meta:
+        model = Cv
+        fields = ['owner', 'image', 'bio', 'rating', 'reviews']
+        extra_kwargs = {
+                'owner': {'read_only': True},
+                'reviews': {'read_only': True}
+            }
+        
+
 class UserSerializer(serializers.ModelSerializer):
-    roles = serializers.ListField(
-        child=serializers.ChoiceField(choices=RoleChoices.choices),
-        write_only=True,
-        required=True
-    )
+    bank_card = BankCardSerializer(read_only=True)
+    cv = CvSerializer(read_only=True)
 
     class Meta:
         model = CustomUser
         fields = (
             'id', 'user_id', 'first_name', 'last_name', 'full_name', 'password',
-            'roles', 'phone_number', 'birth_date', 'date_created', 'language'
+            'phone_number', 'birth_date', 'date_created', 'language', 'roles', 'bank_card', 'cv'
         )
         extra_kwargs = {'password': {'write_only': True}}
 
@@ -32,7 +98,7 @@ class UserSerializer(serializers.ModelSerializer):
             birth_date=validated_data.get('birth_date', None),
             language=validated_data.get('language', None),
         )
-        user.roles = roles  # Save roles directly
+        user.roles = roles
         user.save()
         return user
 
@@ -45,21 +111,6 @@ class PassportSerializer(serializers.ModelSerializer):
             'owner': {'read_only': True} 
         }
 
-class BankCardSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BankCard
-        fields = '__all__'
-        extra_kwargs = {
-            'owner': {'read_only': True} 
-        }
-
-class CvSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Cv
-        fields = '__all__'
-        extra_kwargs = {
-                'owner': {'read_only': True} 
-            }
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -75,6 +126,7 @@ class ProposalSerializer(serializers.ModelSerializer):
             'owner': {'read_only': True} 
         }
 
+
 class OrderSerializer(serializers.ModelSerializer):
     proposals = ProposalSerializer(many=True, read_only=True)
 
@@ -86,8 +138,53 @@ class OrderSerializer(serializers.ModelSerializer):
         }
 
 
+class AppealSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Appeal
+        fields = ['id', 'job', 'problem', 'to', 'owner', 'whom']
+        extra_kwargs = {
+                'owner': {'read_only': True},
+                'whom': {'read_only': True}
+            }
+    def create(self, validated_data):
+        request = self.context['request']
+        user = request.user
+        job = validated_data.get('job')
+
+        # Determine the recipient user based on the role
+        if 'Customer' in user.roles:
+            recipient_user = job.proposal.owner
+        elif 'Worker' in user.roles:
+            recipient_user = job.order.owner
+        else:
+            raise serializers.ValidationError("User must be either a Customer or a Worker to create a review.")
+        
+        # Retrieve the Cv instance associated with the recipient user
+        try:
+            whom = Cv.objects.get(owner=recipient_user)  # Use the actual field name
+        except Cv.DoesNotExist:
+            raise serializers.ValidationError("Cv instance for the recipient user does not exist.")
+        
+        validated_data['owner'] = user
+        validated_data['whom'] = whom
+        
+        return super().create(validated_data)
+    
+    def to_representation(self, instance):
+        # Exclude 'owner' and 'whom' fields from the serialized output
+        representation = super().to_representation(instance)
+        request = self.context['request']
+        
+        if request.method == 'GET':
+            representation.pop('owner', None)
+        
+        return representation
+
 class JobSerializer(serializers.ModelSerializer):
+    appeals = AppealSerializer(many=True, read_only=True)
+    reviews = ReviewSerializer(many=True, read_only=True)
+
     class Meta:
         model = Job
-        fields = '__all__'
+        fields = ['id', 'order', 'proposal', 'price', 'status', 'created_at', 'assignee', 'status_history', 'appeals', 'reviews']
 
