@@ -111,7 +111,6 @@ class Cv(models.Model):
     def update_rating(self):
         reviews = self.reviews
         if reviews.exists():
-            # Convert rating strings to integers
             average_rating = reviews.aggregate(
                 avg_rating=Avg(
                     Case(
@@ -131,10 +130,12 @@ class Cv(models.Model):
         self.save()
 
     def get_closest_rating(self, avg_rating):
-        # Ensure the average rating is within a valid range
         choices = [int(choice.value) for choice in RatingChoices]
         closest_rating = min(choices, key=lambda x: abs(x - avg_rating))
         return str(closest_rating)
+    
+    def appeals(self):
+        return Appeal.objects.filter(whom=self).count()
 
     
 class Category(models.Model):

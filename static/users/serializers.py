@@ -64,14 +64,18 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 class CvSerializer(serializers.ModelSerializer):
     reviews = ReviewSerializer(many=True, read_only=True)
+    appeals = serializers.SerializerMethodField()
 
     class Meta:
         model = Cv
-        fields = ['owner', 'image', 'bio', 'rating', 'reviews']
+        fields = ['owner', 'image', 'bio', 'rating', 'reviews', 'appeals']
         extra_kwargs = {
             'owner': {'read_only': True},
             'reviews': {'read_only': True}
         }
+
+    def appeals(self, obj):
+        return int(obj.appeals())
 
 
 class UserSerializer(serializers.ModelSerializer):
