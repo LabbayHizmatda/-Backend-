@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from .status import RoleChoices, LanguageChoices, JobStatusChoices, OrderStatusChoices, ProposalStatusChoices, RatingChoices, AppealTypeChoices
 from datetime import timezone
 from django.contrib.postgres.fields import ArrayField
+from django.db.models import Avg, Case, When, IntegerField
 
 
 class CustomUserManager(BaseUserManager):
@@ -97,15 +98,45 @@ class BankCard(models.Model):
 
 # only for Role.Worker
 class Cv(models.Model):
-    owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='cv')
+    owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     image = models.CharField(max_length=255, blank=True, null=True)
-    bio = models.TextField(blank=True, null=True)
-    rating = models.CharField(max_length=1, choices=RatingChoices.choices)
-
-    def __str__(self):
-        return f"CV of {self.owner.user_id}"
+    bio = models.TextField()
+    rating = models.CharField(max_length=2, choices=RatingChoices.choices, default=RatingChoices.ONE)
 
 
+    @property
+    def reviews(self):
+        return Review.objects.filter(whom=self)
+
+    def update_rating(self):
+        reviews = self.reviews
+        if reviews.exists():
+            # Convert rating strings to integers
+            average_rating = reviews.aggregate(
+                avg_rating=Avg(
+                    Case(
+                        When(rating='1', then=1),
+                        When(rating='2', then=2),
+                        When(rating='3', then=3),
+                        When(rating='4', then=4),
+                        When(rating='5', then=5),
+                        output_field=IntegerField(),
+                    )
+                )
+            )['avg_rating']
+            rounded_rating = self.get_closest_rating(average_rating)
+            self.rating = rounded_rating
+        else:
+            self.rating = RatingChoices.ONE
+        self.save()
+
+    def get_closest_rating(self, avg_rating):
+        # Ensure the average rating is within a valid range
+        choices = [int(choice.value) for choice in RatingChoices]
+        closest_rating = min(choices, key=lambda x: abs(x - avg_rating))
+        return str(closest_rating)
+
+    
 class Category(models.Model):
     name = models.CharField(max_length=100)
 
@@ -166,7 +197,7 @@ class Review(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='reviews')
     owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     whom = models.ForeignKey(Cv, on_delete=models.CASCADE, related_name='reviews')
-    rating = models.CharField(max_length=1, choices=RatingChoices.choices)
+    rating = models.IntegerField(choices=[(choice, choice) for choice in RatingChoices.values])  # Changed to IntegerField
     comment = models.TextField(null=True)
 
     def __str__(self):

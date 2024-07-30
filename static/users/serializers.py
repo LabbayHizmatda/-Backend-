@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model  
 from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job, Appeal, Review
-from .status import RoleChoices, RatingChoices
+from .status import RatingChoices
 
 User = get_user_model()
 
@@ -45,9 +45,13 @@ class ReviewSerializer(serializers.ModelSerializer):
         
         validated_data['owner'] = user
         validated_data['whom'] = whom
+
+        review = Review.objects.create(**validated_data)
         
-        return super().create(validated_data)
-    
+        whom.update_rating()
+
+        return review
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         request = self.context['request']
@@ -58,19 +62,17 @@ class ReviewSerializer(serializers.ModelSerializer):
         return representation
 
 
-
-
 class CvSerializer(serializers.ModelSerializer):
-    reviews = ReviewSerializer(many=True, read_only=True) 
+    reviews = ReviewSerializer(many=True, read_only=True)
 
     class Meta:
         model = Cv
         fields = ['owner', 'image', 'bio', 'rating', 'reviews']
         extra_kwargs = {
-                'owner': {'read_only': True},
-                'reviews': {'read_only': True}
-            }
-        
+            'owner': {'read_only': True},
+            'reviews': {'read_only': True}
+        }
+
 
 class UserSerializer(serializers.ModelSerializer):
     bank_card = BankCardSerializer(read_only=True)

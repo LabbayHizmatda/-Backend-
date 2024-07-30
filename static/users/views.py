@@ -201,11 +201,17 @@ class ReviewViewSet(viewsets.ModelViewSet):
             return Review.objects.filter(Q(owner=user) | Q(whom=user))
 
     def create(self, request, *args, **kwargs):
-        user = self.request.user
+        user = request.user
         job = request.data.get('job')
 
         if Review.objects.filter(owner=user, job=job).exists():
-            return Response({"detail": "Вы уже оставили отзыв на эту работу."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "You have already left a review for this job."}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
