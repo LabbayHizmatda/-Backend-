@@ -62,7 +62,7 @@ class Passport(models.Model):
     owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='passports')
     series = models.CharField(max_length=4, null=True, blank=True)
     number = models.CharField(max_length=6, null=True, blank=True) 
-    date_of_issue = models.DateField()  # Дата выдачи паспорта
+    date_of_issue = models.DateField() 
     issuing_authority = models.CharField(max_length=255) 
     pinfl = models.CharField(max_length=20, null=True, blank=True)
 
@@ -74,7 +74,7 @@ class Passport(models.Model):
             raise ValidationError('The number must consist of seven digits.')
 
     def save(self, *args, **kwargs):
-        self.full_clean()  # Проверка данных перед сохранением
+        self.full_clean()  
         super().save(*args, **kwargs)
 
     def __str__(self):

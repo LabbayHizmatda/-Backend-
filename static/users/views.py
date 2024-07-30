@@ -7,7 +7,7 @@ from .serializers import UserSerializer, PassportSerializer, BankCardSerializer,
 from .permissions import IsAdmin
 from rest_framework.response import Response
 from django.db.models import Q
-
+from .pagination import StandardResultsSetPagination
 
 User = get_user_model()
 
@@ -27,6 +27,7 @@ class UserViewSet(mixins.RetrieveModelMixin,
     queryset = User.objects.select_related('bank_card', 'cv').all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -40,6 +41,7 @@ class PassportViewSet(viewsets.ModelViewSet):
     queryset = Passport.objects.all()
     serializer_class = PassportSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -56,6 +58,7 @@ class BankCardViewSet(viewsets.ModelViewSet):
     queryset = BankCard.objects.all()
     serializer_class = BankCardSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -77,6 +80,7 @@ class CvViewSet(viewsets.ModelViewSet):
     queryset = Cv.objects.all()
     serializer_class = CvSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -85,10 +89,10 @@ class CvViewSet(viewsets.ModelViewSet):
         else:
             return Cv.objects.filter(owner=user)
         
-    # def create(self, request, *args, **kwargs):
-    #     if 'Worker' not in request.user.roles:
-    #         return Response({"detail": "Резюме может создать только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
-    #     return super().create(request, *args, **kwargs)
+    def create(self, request, *args, **kwargs):
+        if 'Worker' not in request.user.roles or 'Customer' not in request.user.roles:
+            return Response({"detail": "Резюме может создать только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
     
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -98,6 +102,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -119,6 +124,7 @@ class ProposalViewSet(viewsets.ModelViewSet):
     queryset = Proposal.objects.all()
     serializer_class = ProposalSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -165,6 +171,7 @@ class JobViewSet(viewsets.ModelViewSet):
     queryset = Job.objects.all()
     serializer_class = JobSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -172,6 +179,7 @@ class JobViewSet(viewsets.ModelViewSet):
             return Job.objects.all()
         else:
             return Job.objects.filter(Q(proposal__owner=user) | Q(order__owner=user))
+
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
@@ -183,6 +191,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -206,6 +215,7 @@ class AppealViewSet(viewsets.ModelViewSet):
     queryset = Appeal.objects.all()
     serializer_class = AppealSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user

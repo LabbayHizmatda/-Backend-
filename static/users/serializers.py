@@ -31,7 +31,6 @@ class ReviewSerializer(serializers.ModelSerializer):
         user = request.user
         job = validated_data.get('job')
 
-        # Determine the recipient user based on the role
         if 'Customer' in user.roles:
             recipient_user = job.proposal.owner
         elif 'Worker' in user.roles:
@@ -39,9 +38,8 @@ class ReviewSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("User must be either a Customer or a Worker to create a review.")
         
-        # Retrieve the Cv instance associated with the recipient user
         try:
-            whom = Cv.objects.get(owner=recipient_user)  # Use the actual field name
+            whom = Cv.objects.get(owner=recipient_user) 
         except Cv.DoesNotExist:
             raise serializers.ValidationError("Cv instance for the recipient user does not exist.")
         
@@ -51,7 +49,6 @@ class ReviewSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
     
     def to_representation(self, instance):
-        # Exclude 'owner' and 'whom' fields from the serialized output
         representation = super().to_representation(instance)
         request = self.context['request']
         
@@ -64,7 +61,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 
 class CvSerializer(serializers.ModelSerializer):
-    reviews = ReviewSerializer(many=True, read_only=True)  # Use many=True since it's a reverse relation
+    reviews = ReviewSerializer(many=True, read_only=True) 
 
     class Meta:
         model = Cv
@@ -151,7 +148,6 @@ class AppealSerializer(serializers.ModelSerializer):
         user = request.user
         job = validated_data.get('job')
 
-        # Determine the recipient user based on the role
         if 'Customer' in user.roles:
             recipient_user = job.proposal.owner
         elif 'Worker' in user.roles:
@@ -159,9 +155,8 @@ class AppealSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("User must be either a Customer or a Worker to create a review.")
         
-        # Retrieve the Cv instance associated with the recipient user
         try:
-            whom = Cv.objects.get(owner=recipient_user)  # Use the actual field name
+            whom = Cv.objects.get(owner=recipient_user) 
         except Cv.DoesNotExist:
             raise serializers.ValidationError("Cv instance for the recipient user does not exist.")
         
@@ -171,7 +166,6 @@ class AppealSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
     
     def to_representation(self, instance):
-        # Exclude 'owner' and 'whom' fields from the serialized output
         representation = super().to_representation(instance)
         request = self.context['request']
         
