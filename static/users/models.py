@@ -82,7 +82,6 @@ class Passport(models.Model):
         return f'{self.series}{self.number}'
     
 
-# only for Role.Worker
 class BankCard(models.Model):
     owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='bank_card')
     holder_name = models.CharField(max_length=255)
@@ -96,7 +95,6 @@ class BankCard(models.Model):
         return f"Card # {self.holder_name} - {self.card_number}"
 
 
-# only for Role.Worker
 class Cv(models.Model):
     owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     image = models.CharField(max_length=255, blank=True, null=True)
@@ -160,7 +158,6 @@ class Order(models.Model):
         return f"Order #{self.id} - {self.description}"
 
 
-# only for Role.Worker
 class Proposal(models.Model):
     owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='proposals', default='')
@@ -198,7 +195,7 @@ class Review(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='reviews')
     owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     whom = models.ForeignKey(Cv, on_delete=models.CASCADE, related_name='reviews')
-    rating = models.IntegerField(choices=[(choice, choice) for choice in RatingChoices.values])  # Changed to IntegerField
+    rating = models.IntegerField(choices=[(choice, choice) for choice in RatingChoices.values])
     comment = models.TextField(null=True)
 
     def __str__(self):

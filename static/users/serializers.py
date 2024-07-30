@@ -71,7 +71,8 @@ class CvSerializer(serializers.ModelSerializer):
         fields = ['owner', 'image', 'bio', 'rating', 'reviews', 'appeals']
         extra_kwargs = {
             'owner': {'read_only': True},
-            'reviews': {'read_only': True}
+            'reviews': {'read_only': True},
+            'appeals': {'read_only': True}
         }
 
     def appeals(self, obj):

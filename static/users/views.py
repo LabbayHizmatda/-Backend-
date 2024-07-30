@@ -90,8 +90,14 @@ class CvViewSet(viewsets.ModelViewSet):
             return Cv.objects.filter(owner=user)
         
     def create(self, request, *args, **kwargs):
-        if 'Worker' not in request.user.roles or 'Customer' not in request.user.roles:
-            return Response({"detail": "Резюме может создать только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
+        user = request.user
+        
+        if Cv.objects.filter(owner=user).exists():
+            return Response({"detail": "У пользователя уже существует CV."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if 'Worker' not in user.roles and 'Customer' not in user.roles:
+            return Response({"detail": "Резюме может создать только человек с ролью Worker или Customer."}, status=status.HTTP_403_FORBIDDEN)
+        
         return super().create(request, *args, **kwargs)
     
     def perform_create(self, serializer):
@@ -114,6 +120,10 @@ class OrderViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         if 'Customer' not in request.user.roles:
             return Response({"detail": "Заказ может создать только человек с ролью Customer."}, status=status.HTTP_403_FORBIDDEN)
+
+        if not Cv.objects.filter(owner=request.user).exists():
+            return Response({"detail": "Для создания заказа у пользователя должен быть создан CV."}, status=status.HTTP_400_BAD_REQUEST)
+
         return super().create(request, *args, **kwargs)
         
     def perform_create(self, serializer):
@@ -136,6 +146,9 @@ class ProposalViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         if 'Worker' not in request.user.roles:
             return Response({"detail": "Отклик может создать только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
+
+        if not Cv.objects.filter(owner=request.user).exists():
+            return Response({"detail": "Для создания отклика у пользователя должен быть создан CV."}, status=status.HTTP_400_BAD_REQUEST)
 
         order_id = request.data.get('order')
         user = request.user
