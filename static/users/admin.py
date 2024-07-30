@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job
+from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job, Review, Appeal
 from django import forms
 from .status import RoleChoices
 
@@ -74,3 +74,15 @@ class JobAdmin(admin.ModelAdmin):
     list_display = ('id', 'order', 'proposal', 'status', 'created_at', 'assignee')
     list_filter = ('status', 'created_at')
     search_fields = ('id', 'order__id', 'proposal__id')
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ('job', 'owner', 'whom', 'rating', 'comment')
+    search_fields = ('job__id', 'owner__user_id', 'whom__owner__user_id', 'rating')
+    list_filter = ('rating', 'job')
+
+@admin.register(Appeal)
+class AppealAdmin(admin.ModelAdmin):
+    list_display = ('job', 'owner', 'whom', 'problem', 'to')
+    search_fields = ('job__id', 'owner__user_id', 'whom__owner__user_id', 'problem', 'to')
+    list_filter = ('to',)

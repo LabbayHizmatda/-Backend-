@@ -23,18 +23,21 @@ class UserViewSet(mixins.RetrieveModelMixin,
                   mixins.DestroyModelMixin,
                   mixins.ListModelMixin,
                   viewsets.GenericViewSet):
-
-    queryset = User.objects.select_related('bank_card', 'cv').all()
+    queryset = User.objects.select_related('bank_card', 'cv').prefetch_related(
+            'cv__reviews',  # Предзагрузка связанных объектов review для cv
+            'cv__appeals'   # Предзагрузка связанных объектов appeal для cv
+        ).order_by('id')
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
+    
         if 'Admin' in user.roles:
-            return User.objects.all()
+            return self.queryset
         else:
-            return User.objects.filter(id=user.id)
+            return self.queryset.filter(id=user.id)
 
 
 class PassportViewSet(viewsets.ModelViewSet):
@@ -77,18 +80,22 @@ class BankCardViewSet(viewsets.ModelViewSet):
 
 
 class CvViewSet(viewsets.ModelViewSet):
-    queryset = Cv.objects.all()
+    queryset = Cv.objects.select_related('owner').prefetch_related(
+            'reviews',  # Предзагрузка связанных объектов review
+            'appeals'   # Предзагрузка связанных объектов appeal
+        )
     serializer_class = CvSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
-        if 'Admin' in user.roles:
-            return Cv.objects.all()
-        else:
-            return Cv.objects.filter(owner=user)
         
+        if 'Admin' in user.roles:
+            return self.queryset
+        else:
+            return self.queryset.filter(owner=user)
+    
     def create(self, request, *args, **kwargs):
         user = request.user
         

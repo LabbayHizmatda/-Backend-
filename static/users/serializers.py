@@ -68,15 +68,17 @@ class CvSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cv
-        fields = ['owner', 'image', 'bio', 'rating', 'reviews', 'appeals']
+        fields = ['owner', 'image', 'bio', 'rating', 'word_experience', 'reviews', 'appeals']
         extra_kwargs = {
             'owner': {'read_only': True},
             'reviews': {'read_only': True},
             'appeals': {'read_only': True}
         }
 
-    def appeals(self, obj):
-        return int(obj.appeals())
+    def get_appeals(self, obj):
+        # Метод для подсчета количества appeals
+        return obj.appeals.count()
+
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -90,6 +92,7 @@ class UserSerializer(serializers.ModelSerializer):
             'phone_number', 'birth_date', 'date_created', 'language', 'roles', 'bank_card', 'cv'
         )
         extra_kwargs = {'password': {'write_only': True}}
+
 
     def create(self, validated_data):
         roles = validated_data.pop('roles', [])

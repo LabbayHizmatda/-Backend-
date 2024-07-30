@@ -100,7 +100,7 @@ class Cv(models.Model):
     image = models.CharField(max_length=255, blank=True, null=True)
     bio = models.TextField()
     rating = models.CharField(max_length=2, choices=RatingChoices.choices, default=RatingChoices.ONE)
-
+    word_experience = models.IntegerField(default=0)  # Experience in months
 
     @property
     def reviews(self):
@@ -131,9 +131,12 @@ class Cv(models.Model):
         choices = [int(choice.value) for choice in RatingChoices]
         closest_rating = min(choices, key=lambda x: abs(x - avg_rating))
         return str(closest_rating)
-    
+
     def appeals(self):
         return Appeal.objects.filter(whom=self).count()
+
+    def __str__(self):
+        return f"{self.owner}'s CV"
 
     
 class Category(models.Model):
