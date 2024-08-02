@@ -12,13 +12,11 @@ class PriceRangeFilter(django_filters.FilterSet):
         fields = ['min_price', 'max_price']
 
     def filter_by_min_price(self, queryset, name, value):
-        # Преобразуем поле price в FloatField для фильтрации
         return queryset.annotate(
             numeric_price=Cast('price', IntegerField())
         ).filter(numeric_price__gte=value)
 
     def filter_by_max_price(self, queryset, name, value):
-        # Преобразуем поле price в FloatField для фильтрации
         return queryset.annotate(
             numeric_price=Cast('price', IntegerField())
         ).filter(numeric_price__lte=value)

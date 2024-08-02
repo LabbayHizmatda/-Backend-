@@ -99,7 +99,7 @@ class Cv(models.Model):
     image = models.CharField(max_length=255, blank=True, null=True)
     bio = models.TextField()
     rating = models.CharField(max_length=2, choices=RatingChoices.choices, default=RatingChoices.ONE)
-    word_experience = models.IntegerField(default=0)  # Experience in months
+    word_experience = models.IntegerField(default=0) 
 
     @property
     def reviews(self):
