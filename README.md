@@ -12,7 +12,7 @@ git clone https://github.com/LabbayHizmatda/-Backend-.git
 cd static
 
 ## код для запуска Docker
-docker-compose up --build.
+docker-compose up --build
 
 ```
 
