@@ -43,6 +43,13 @@ MIDDLEWARE = [
 
 ]
 
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.getenv('CACHE_URL', 'redis://localhost:6379/1'),
+    }
+}
+
 
 ROOT_URLCONF = 'static.urls'
 

@@ -14,6 +14,7 @@ class BankCardSerializer(serializers.ModelSerializer):
             'owner': {'read_only': True} 
         }
 
+
 class ReviewSerializer(serializers.ModelSerializer):
     rating = serializers.ChoiceField(choices=RatingChoices.choices, required=False)
     job = serializers.PrimaryKeyRelatedField(queryset=Job.objects.all())
@@ -37,10 +38,9 @@ class ReviewSerializer(serializers.ModelSerializer):
             recipient_user = job.order.owner
         else:
             raise serializers.ValidationError("User must be either a Customer or a Worker to create a review.")
-        
-        try:
-            whom = Cv.objects.get(owner=recipient_user) 
-        except Cv.DoesNotExist:
+
+        whom = Cv.objects.filter(owner=recipient_user).first()
+        if not whom:
             raise serializers.ValidationError("Cv instance for the recipient user does not exist.")
         
         validated_data['owner'] = user
@@ -51,15 +51,6 @@ class ReviewSerializer(serializers.ModelSerializer):
         whom.update_rating()
 
         return review
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        request = self.context['request']
-        
-        if request.method == 'GET':
-            representation.pop('owner', None)
-        
-        return representation
 
 
 class CvSerializer(serializers.ModelSerializer):
@@ -152,6 +143,7 @@ class AppealSerializer(serializers.ModelSerializer):
                 'owner': {'read_only': True},
                 'whom': {'read_only': True}
             }
+        
     def create(self, validated_data):
         request = self.context['request']
         user = request.user
