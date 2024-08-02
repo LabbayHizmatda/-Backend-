@@ -8,6 +8,9 @@ from .permissions import IsAdmin
 from rest_framework.response import Response
 from django.db.models import Q
 from .pagination import StandardResultsSetPagination
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import CustomUserFilter, PassportFilter, OrderFilter, ProposalFilter, JobFilter, ReviewFilter, AppealFilter
+
 
 User = get_user_model()
 
@@ -23,13 +26,12 @@ class UserViewSet(mixins.RetrieveModelMixin,
                   mixins.DestroyModelMixin,
                   mixins.ListModelMixin,
                   viewsets.GenericViewSet):
-    queryset = User.objects.select_related('bank_card', 'cv').prefetch_related(
-            'cv__reviews',  # Предзагрузка связанных объектов review для cv
-            'cv__appeals'   # Предзагрузка связанных объектов appeal для cv
-        ).order_by('id')
+    queryset = User.objects.select_related('bank_card', 'cv').prefetch_related('cv__reviews', 'cv__appeals').order_by('id')
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = CustomUserFilter
 
     def get_queryset(self):
         user = self.request.user
@@ -45,7 +47,9 @@ class PassportViewSet(viewsets.ModelViewSet):
     serializer_class = PassportSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
-
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = PassportFilter
+    
     def get_queryset(self):
         user = self.request.user
         if 'Admin' in user.roles:
@@ -80,10 +84,7 @@ class BankCardViewSet(viewsets.ModelViewSet):
 
 
 class CvViewSet(viewsets.ModelViewSet):
-    queryset = Cv.objects.select_related('owner').prefetch_related(
-            'reviews',  # Предзагрузка связанных объектов review
-            'appeals'   # Предзагрузка связанных объектов appeal
-        )
+    queryset = Cv.objects.select_related('owner').prefetch_related('reviews', 'appeals')
     serializer_class = CvSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
@@ -116,6 +117,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = OrderFilter
 
     def get_queryset(self):
         user = self.request.user
@@ -142,6 +145,8 @@ class ProposalViewSet(viewsets.ModelViewSet):
     serializer_class = ProposalSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = ProposalFilter
 
     def get_queryset(self):
         user = self.request.user
@@ -192,6 +197,8 @@ class JobViewSet(viewsets.ModelViewSet):
     serializer_class = JobSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = JobFilter
 
     def get_queryset(self):
         user = self.request.user
@@ -212,6 +219,8 @@ class ReviewViewSet(viewsets.ModelViewSet):
     serializer_class = ReviewSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = ReviewFilter
 
     def get_queryset(self):
         user = self.request.user
@@ -242,6 +251,8 @@ class AppealViewSet(viewsets.ModelViewSet):
     serializer_class = AppealSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = AppealFilter
 
     def get_queryset(self):
         user = self.request.user

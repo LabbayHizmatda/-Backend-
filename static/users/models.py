@@ -90,7 +90,6 @@ class BankCard(models.Model):
         help_text="Enter a card number with up to 16 digits."
     )
     
-    
     def __str__(self):
         return f"Card # {self.holder_name} - {self.card_number}"
 

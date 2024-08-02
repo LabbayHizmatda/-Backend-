@@ -68,7 +68,7 @@ class CvSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cv
-        fields = ['owner', 'image', 'bio', 'rating', 'word_experience', 'reviews', 'appeals']
+        fields = ['owner', 'image', 'bio', 'rating', 'word_experience', 'appeals', 'reviews']
         extra_kwargs = {
             'owner': {'read_only': True},
             'reviews': {'read_only': True},
@@ -76,7 +76,6 @@ class CvSerializer(serializers.ModelSerializer):
         }
 
     def get_appeals(self, obj):
-        # Метод для подсчета количества appeals
         return obj.appeals.count()
 
 
@@ -187,7 +186,7 @@ class AppealSerializer(serializers.ModelSerializer):
 class JobSerializer(serializers.ModelSerializer):
     appeals = AppealSerializer(many=True, read_only=True)
     reviews = ReviewSerializer(many=True, read_only=True)
-
+    
     class Meta:
         model = Job
         fields = ['id', 'order', 'proposal', 'price', 'status', 'created_at', 'assignee', 'status_history', 'appeals', 'reviews']
