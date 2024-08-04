@@ -8,6 +8,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-zssl2xd3p&6t%ssf-*cd60*6j9jyy00n7^zyp)#0-l#a-^bbre'
 
 
+DB_NAME = os.environ.get('DB_NAME', 'labbayhizmatDB')
+DB_USER = os.environ.get('DB_USER', 'postgres')
+DB_PASSWORD = os.environ.get('DB_PASSWORD')
+DATABASE_HOST = os.environ.get('DATABASE_HOST', 'db')
+DATABASE_PORT = os.environ.get('DATABASE_PORT', 5432)
+
+
 DEBUG = True
 
 
@@ -43,12 +50,13 @@ MIDDLEWARE = [
 
 ]
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': os.getenv('CACHE_URL', 'redis://localhost:6379/1'),
-    }
-}
+
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+#         'LOCATION': os.getenv('CACHE_URL', 'redis://localhost:6379/1'),
+#     }
+# }
 
 
 ROOT_URLCONF = 'static.urls'
@@ -76,15 +84,15 @@ WSGI_APPLICATION = 'static.wsgi.application'
 
 AUTH_USER_MODEL = 'users.CustomUser'
 
-
+ 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'rest-auth'),
-        'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD'),
-        'HOST': os.environ.get('DATABASE_HOST', 'db'),
-        'PORT': os.environ.get('DATABASE_PORT', 5432),
+        'NAME': DB_NAME,
+        'USER': DB_USER,
+        'PASSWORD': DB_PASSWORD,
+        'HOST': DATABASE_HOST,
+        'PORT': DATABASE_PORT,
     }
 }
 

@@ -2,6 +2,7 @@ version: '3.9'
 
 services:
   redis:
+    container_name: LabbayHizmatda_redis
     image: redis:latest
     ports:
       - "6379:6379"
@@ -9,6 +10,7 @@ services:
       - mynetwork
 
   db:
+    container_name: LabbayHizmatda_db
     image: postgres:16
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -23,6 +25,7 @@ services:
 
   web:
     build: .
+    container_name: LabbayHizmatda_web
     volumes:
       - .:/code
     ports:
@@ -36,7 +39,7 @@ services:
       DB_PASSWORD: postgres
       DB_HOST: db
       DB_PORT: 5432
-      CACHE_URL: redis://redis:6379/1  # Add this environment variable
+      CACHE_URL: redis://redis:6379/1 
     networks:
       - mynetwork
 

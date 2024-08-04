@@ -33,7 +33,6 @@ class UserViewSet(mixins.RetrieveModelMixin,
     filter_backends = (DjangoFilterBackend,)
     filterset_class = CustomUserFilter
 
-    @method_decorator(cache_page(60*15)) 
     def list(self, request, *args, **kwargs):
         user = request.user
         if 'Admin' in user.roles:
@@ -47,7 +46,6 @@ class UserViewSet(mixins.RetrieveModelMixin,
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @method_decorator(cache_page(60*15))
     def retrieve(self, request, *args, **kwargs):
         user = request.user
         instance = self.get_object()
@@ -56,7 +54,7 @@ class UserViewSet(mixins.RetrieveModelMixin,
             return Response(serializer.data)
         else:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
+        
 
 class PassportViewSet(viewsets.ModelViewSet):
     serializer_class = PassportSerializer
@@ -65,7 +63,6 @@ class PassportViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = PassportFilter
 
-    @method_decorator(cache_page(60*15)) 
     def list(self, request, *args, **kwargs):
         user = request.user
         if 'Admin' in user.roles:
@@ -79,7 +76,6 @@ class PassportViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @method_decorator(cache_page(60*15))  
     def retrieve(self, request, *args, **kwargs):
         user = request.user
         instance = self.get_object()
@@ -98,7 +94,6 @@ class BankCardViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
 
-    @method_decorator(cache_page(60*15)) 
     def list(self, request, *args, **kwargs):
         user = request.user
         if 'Admin' in user.roles:
@@ -112,7 +107,6 @@ class BankCardViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @method_decorator(cache_page(60*15)) 
     def retrieve(self, request, *args, **kwargs):
         user = request.user
         instance = self.get_object()
@@ -124,9 +118,9 @@ class BankCardViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         if 'Worker' not in request.user.roles:
-            return Response({"detail": "Банк карту может создать только человек с ролю Worker."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "Банк карту может создать только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
         return super().create(request, *args, **kwargs)
-    
+
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
@@ -136,7 +130,6 @@ class CvViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
 
-    @method_decorator(cache_page(60*15))
     def list(self, request, *args, **kwargs):
         user = request.user
         if 'Admin' in user.roles:
@@ -150,7 +143,6 @@ class CvViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @method_decorator(cache_page(60*15)) 
     def retrieve(self, request, *args, **kwargs):
         user = request.user
         instance = self.get_object()
@@ -162,15 +154,12 @@ class CvViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         user = request.user
-        
         if Cv.objects.filter(owner=user).exists():
             return Response({"detail": "У пользователя уже существует CV."}, status=status.HTTP_400_BAD_REQUEST)
-        
         if 'Worker' not in user.roles and 'Customer' not in user.roles:
             return Response({"detail": "Резюме может создать только человек с ролью Worker или Customer."}, status=status.HTTP_403_FORBIDDEN)
-        
         return super().create(request, *args, **kwargs)
-    
+
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
@@ -182,7 +171,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = OrderFilter
 
-    @method_decorator(cache_page(60*15))
     def list(self, request, *args, **kwargs):
         user = request.user
         if 'Admin' in user.roles:
@@ -196,7 +184,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @method_decorator(cache_page(60*15)) 
     def retrieve(self, request, *args, **kwargs):
         user = request.user
         instance = self.get_object()
@@ -206,18 +193,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         else:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    def create(self, request, *args, **kwargs):
-        if 'Customer' not in request.user.roles:
-            return Response({"detail": "Заказ может создать только человек с ролью Customer."}, status=status.HTTP_403_FORBIDDEN)
-
-        if not Cv.objects.filter(owner=request.user).exists():
-            return Response({"detail": "Для создания заказа у пользователя должен быть создан CV."}, status=status.HTTP_400_BAD_REQUEST)
-
-        return super().create(request, *args, **kwargs)
-
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
-
 
 class ProposalViewSet(viewsets.ModelViewSet):
     serializer_class = ProposalSerializer
@@ -226,7 +201,6 @@ class ProposalViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = ProposalFilter
 
-    @method_decorator(cache_page(60*15)) 
     def list(self, request, *args, **kwargs):
         user = request.user
         if 'Admin' in user.roles:
@@ -240,7 +214,6 @@ class ProposalViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @method_decorator(cache_page(60*15)) 
     def retrieve(self, request, *args, **kwargs):
         user = request.user
         instance = self.get_object()
@@ -284,7 +257,6 @@ class JobViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = JobFilter
 
-    @method_decorator(cache_page(60*15))  
     def list(self, request, *args, **kwargs):
         user = request.user
         if 'Admin' in user.roles:
@@ -300,11 +272,14 @@ class JobViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @method_decorator(cache_page(60*15))  
     def retrieve(self, request, *args, **kwargs):
+        user = request.user
         instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        if 'Admin' in user.roles or instance.proposal.owner == user or instance.order.owner == user:
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+        else:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def create(self, request, *args, **kwargs):
         if 'Worker' not in request.user.roles:
@@ -327,7 +302,6 @@ class AppealViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = AppealFilter
 
-    @method_decorator(cache_page(60*15)) 
     def list(self, request, *args, **kwargs):
         user = request.user
         if 'Admin' in user.roles:
@@ -341,7 +315,6 @@ class AppealViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @method_decorator(cache_page(60*15)) 
     def retrieve(self, request, *args, **kwargs):
         user = request.user
         instance = self.get_object()
@@ -359,7 +332,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = ReviewFilter
 
-    @method_decorator(cache_page(60*15))
     def list(self, request, *args, **kwargs):
         user = request.user
         if 'Admin' in user.roles:
@@ -373,7 +345,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @method_decorator(cache_page(60*15))  
     def retrieve(self, request, *args, **kwargs):
         user = request.user
         instance = self.get_object()

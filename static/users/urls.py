@@ -4,7 +4,6 @@ from .views import RegisterView, UserViewSet, PassportViewSet, BankCardViewSet, 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-# Создание маршрутизатора
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'passports', PassportViewSet, basename='passport')
@@ -22,9 +21,7 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('register/', RegisterView.as_view(), name='register'),
 
-    # Включение маршрутов из роутера
     path('', include(router.urls)),
 
-    # Пользовательские эндпоинты
     path('proposals/<int:pk>/update_status/', ProposalUpdateStatusView.as_view(), name='proposal-update-status'),
 ]

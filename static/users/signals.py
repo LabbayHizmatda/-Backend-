@@ -1,7 +1,14 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.utils import timezone
-from .models import Proposal, Job, ProposalStatusChoices, JobStatusChoices, RatingChoices
+from .models import Proposal, Job
+from .status import  ProposalStatusChoices, JobStatusChoices
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.contrib.auth import get_user_model
+
+
+User = get_user_model()
+
 
 @receiver(post_save, sender=Proposal)
 def create_job_on_proposal_approval(sender, instance, **kwargs):
@@ -14,5 +21,3 @@ def create_job_on_proposal_approval(sender, instance, **kwargs):
             assignee=instance.owner,
             status_history=None,
         )
-
-        

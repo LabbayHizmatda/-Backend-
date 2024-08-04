@@ -58,6 +58,15 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return str(self.user_id)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['user_id']),
+            models.Index(fields=['phone_number']),
+            models.Index(fields=['language']),
+            models.Index(fields=['tg_username']),
+            models.Index(fields=['date_created']),
+        ]
+
 
 class Passport(models.Model):
     owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='passports')
@@ -80,7 +89,14 @@ class Passport(models.Model):
 
     def __str__(self):
         return f'{self.series}{self.number}'
-    
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['owner']),
+            models.Index(fields=['series']),
+            models.Index(fields=['number']),
+        ]
+
 
 class BankCard(models.Model):
     owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='bank_card')
@@ -92,6 +108,12 @@ class BankCard(models.Model):
     
     def __str__(self):
         return f"Card # {self.holder_name} - {self.card_number}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['owner']),
+            models.Index(fields=['card_number']),
+        ]
 
 
 class Cv(models.Model):
@@ -137,12 +159,23 @@ class Cv(models.Model):
     def __str__(self):
         return f"{self.owner}'s CV"
 
-    
+    class Meta:
+        indexes = [
+            models.Index(fields=['owner']),
+            models.Index(fields=['rating']),
+        ]
+
+
 class Category(models.Model):
     name = models.CharField(max_length=100)
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['name']),
+        ]
 
 
 class Order(models.Model):
@@ -159,6 +192,14 @@ class Order(models.Model):
     def __str__(self):
         return f"Order #{self.id} - {self.description}"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['owner']),
+            models.Index(fields=['category']),
+            models.Index(fields=['status']),
+            models.Index(fields=['created_at']),
+        ]
+
 
 class Proposal(models.Model):
     owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
@@ -170,6 +211,14 @@ class Proposal(models.Model):
 
     def __str__(self):
         return f"Proposal #{self.id} - {self.owner.user_id} on Order #{self.order.id}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['owner']),
+            models.Index(fields=['order']),
+            models.Index(fields=['status']),
+            models.Index(fields=['created_at']),
+        ]
 
 
 class Job(models.Model):
@@ -192,6 +241,15 @@ class Job(models.Model):
                 self.status_history = f"{timezone.now()}: {self.get_status_display()} -> {self.status}\n" + (self.status_history or "")
         super().save(*args, **kwargs)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['order']),
+            models.Index(fields=['proposal']),
+            models.Index(fields=['status']),
+            models.Index(fields=['created_at']),
+            models.Index(fields=['assignee']),
+        ]
+
 
 class Review(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='reviews')
@@ -203,6 +261,14 @@ class Review(models.Model):
     def __str__(self):
         return f"Review by {self.owner} for {self.whom} - Rating: {self.rating}"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['job']),
+            models.Index(fields=['owner']),
+            models.Index(fields=['whom']),
+            models.Index(fields=['rating']),
+        ]
+
 
 class Appeal(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="appeals")
@@ -213,3 +279,11 @@ class Appeal(models.Model):
 
     def __str__(self):
         return f"Appeal for Job {self.job_id.id} - To: {self.to}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['job']),
+            models.Index(fields=['owner']),
+            models.Index(fields=['whom']),
+            models.Index(fields=['to']),
+        ]
