@@ -192,6 +192,15 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         else:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+    def create(self, request, *args, **kwargs):
+        if 'Customer' not in request.user.roles:
+            return Response({"detail": "Заказать может только человек с ролью Customer."}, status=status.HTTP_403_FORBIDDEN)
+
+        if not Cv.objects.filter(owner=request.user).exists():
+            return Response({"detail": "Для создания заказа у пользователя должен быть создан CV."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return super().create(request, *args, **kwargs)
 
 
 class ProposalViewSet(viewsets.ModelViewSet):
@@ -225,7 +234,11 @@ class ProposalViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         if 'Worker' not in request.user.roles:
-            return Response({"detail": "Предложение может создать только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "Откликнуться может только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
+
+        if not Cv.objects.filter(owner=request.user).exists():
+            return Response({"detail": "Для создания отлика у пользователя должен быть создан CV."}, status=status.HTTP_400_BAD_REQUEST)
+
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
@@ -280,11 +293,6 @@ class JobViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         else:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-    def create(self, request, *args, **kwargs):
-        if 'Worker' not in request.user.roles:
-            return Response({"detail": "Задание может создать только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
-        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         serializer.save(assignee=self.request.user)
