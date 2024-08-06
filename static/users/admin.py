@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job, Review, Appeal
+from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job, Review, Appeal, Image, Video
 from django import forms
 from .status import RoleChoices
 
@@ -30,7 +30,6 @@ class CustomUserAdmin(admin.ModelAdmin):
         obj.roles = form.cleaned_data.get('roles', [])
         super().save_model(request, obj, form, change)
 
-
 @admin.register(Passport)
 class PassportAdmin(admin.ModelAdmin):
     list_display = ('owner', 'series', 'number', 'date_of_issue', 'issuing_authority')
@@ -55,11 +54,36 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ('name',)
 
 
+class ImageInline(admin.TabularInline):
+    model = Image
+    extra = 1
+
+class VideoInline(admin.TabularInline):
+    model = Video
+    extra = 1
+
+class OrderAdminForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = '__all__'
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
+    form = OrderAdminForm
+    inlines = [ImageInline, VideoInline]
     list_display = ('id', 'owner', 'category', 'status', 'created_at')
     list_filter = ('status', 'created_at')
     search_fields = ('id', 'owner__user_id', 'description')
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        if not change:
+            for image in form.cleaned_data.get('images', []):
+                image.order = form.instance
+                image.save()
+            for video in form.cleaned_data.get('videos', []):
+                video.order = form.instance
+                video.save()
 
 
 @admin.register(Proposal)
@@ -86,3 +110,15 @@ class AppealAdmin(admin.ModelAdmin):
     list_display = ('job', 'owner', 'whom', 'problem', 'to')
     search_fields = ('job__id', 'owner__user_id', 'whom__owner__user_id', 'problem', 'to')
     list_filter = ('to',)
+
+
+class ImageAdmin(admin.ModelAdmin):
+    list_display = ('id', 'order', 'image_file')
+    search_fields = ('order',)
+
+class VideoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'order', 'video_file')
+    search_fields = ('order',)
+
+admin.site.register(Image, ImageAdmin)
+admin.site.register(Video, VideoAdmin)

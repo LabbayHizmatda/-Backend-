@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model  
-from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job, Appeal, Review
+from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job, Appeal, Review, Image, Video
 from .status import RatingChoices
+from django.core.files.base import ContentFile
+
 
 User = get_user_model()
 
@@ -13,6 +15,15 @@ class BankCardSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'owner': {'read_only': True} 
         }
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context['request']
+        
+        if request.method == 'GET':
+            representation.pop('owner', None)
+        
+        return representation
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -51,6 +62,15 @@ class ReviewSerializer(serializers.ModelSerializer):
         whom.update_rating()
 
         return review
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context['request']
+        
+        if request.method == 'GET':
+            representation.pop('owner', None)
+        
+        return representation
 
 
 class CvSerializer(serializers.ModelSerializer):
@@ -68,6 +88,15 @@ class CvSerializer(serializers.ModelSerializer):
 
     def get_appeals(self, obj):
         return obj.appeals.count()
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context['request']
+        
+        if request.method == 'GET':
+            representation.pop('owner', None)
+        
+        return representation
 
 
 
@@ -107,6 +136,15 @@ class PassportSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'owner': {'read_only': True} 
         }
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context['request']
+        
+        if request.method == 'GET':
+            representation.pop('owner', None)
+        
+        return representation
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -123,17 +161,63 @@ class ProposalSerializer(serializers.ModelSerializer):
             'owner': {'read_only': True} 
         }
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context['request']
+        
+        if request.method == 'GET':
+            representation.pop('owner', None)
+        
+        return representation
+
+
+class ImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Image
+        fields = ['id', 'image_file']
+
+class VideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Video
+        fields = ['id', 'video_file']
+
+
 
 class OrderSerializer(serializers.ModelSerializer):
-    proposals = ProposalSerializer(many=True, read_only=True)
+    images = ImageSerializer(many=True, read_only=True)
+    videos = VideoSerializer(many=True, read_only=True)
+    image_files = serializers.ListField(child=serializers.ImageField(), write_only=True, required=False)
+    video_files = serializers.ListField(child=serializers.FileField(), write_only=True, required=False)
 
     class Meta:
         model = Order
-        fields = ['id', 'description', 'image', 'location', 'location_link', 'price', 'status', 'created_at', 'owner', 'category', 'proposals']
+        fields = ['id', 'description', 'location', 'location_link', 'price', 'status', 'created_at', 'owner', 'category', 'images', 'videos', 'image_files', 'video_files']
         extra_kwargs = {
-            'owner': {'read_only': True} 
+            'owner': {'read_only': True}
         }
 
+    def create(self, validated_data):
+        image_files = validated_data.pop('image_files', [])
+        video_files = validated_data.pop('video_files', [])
+        
+        order = super().create(validated_data)
+
+        for image in image_files:
+            Image.objects.create(order=order, image_file=image)
+        for video in video_files:
+            Video.objects.create(order=order, video_file=video)
+        
+        return order
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context['request']
+        
+        if request.method == 'GET':
+            representation.pop('owner', None)
+        
+        return representation
+    
 
 class AppealSerializer(serializers.ModelSerializer):
     class Meta:
@@ -165,7 +249,7 @@ class AppealSerializer(serializers.ModelSerializer):
         validated_data['whom'] = whom
         
         return super().create(validated_data)
-    
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         request = self.context['request']

@@ -10,9 +10,7 @@ from django.db.models import Q
 from .pagination import StandardResultsSetPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import CustomUserFilter, PassportFilter, OrderFilter, ProposalFilter, JobFilter, ReviewFilter, AppealFilter
-from django.core.cache import cache
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
+
 
 User = get_user_model()
 
@@ -171,28 +169,14 @@ class OrderViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = OrderFilter
 
-    def list(self, request, *args, **kwargs):
-        user = request.user
+    def get_queryset(self):
+        user = self.request.user
         if 'Admin' in user.roles:
             queryset = Order.objects.all().select_related('owner', 'category').prefetch_related('proposals')
         else:
             queryset = Order.objects.filter(owner=user).select_related('owner', 'category').prefetch_related('proposals')
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+        return queryset
 
-    def retrieve(self, request, *args, **kwargs):
-        user = request.user
-        instance = self.get_object()
-        if 'Admin' in user.roles or instance.owner == user:
-            serializer = self.get_serializer(instance)
-            return Response(serializer.data)
-        else:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        
     def create(self, request, *args, **kwargs):
         if 'Customer' not in request.user.roles:
             return Response({"detail": "Заказать может только человек с ролью Customer."}, status=status.HTTP_403_FORBIDDEN)
@@ -201,6 +185,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Для создания заказа у пользователя должен быть создан CV."}, status=status.HTTP_400_BAD_REQUEST)
 
         return super().create(request, *args, **kwargs)
+    
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 
 class ProposalViewSet(viewsets.ModelViewSet):

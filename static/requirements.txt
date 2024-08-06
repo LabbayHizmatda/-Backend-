@@ -8,3 +8,5 @@ django-filter
 redis 
 django-redis
 django-cors-headers
+requests
+pillow

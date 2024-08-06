@@ -182,7 +182,6 @@ class Order(models.Model):
     owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     description = models.TextField()
-    image = models.CharField(max_length=255) 
     location = models.CharField(max_length=255)
     location_link = models.CharField(max_length=255, null=True, blank=True)
     price = models.CharField(max_length=50)
@@ -200,6 +199,21 @@ class Order(models.Model):
             models.Index(fields=['created_at']),
         ]
 
+
+class Image(models.Model):
+    order = models.ForeignKey(Order, related_name='images', on_delete=models.CASCADE)
+    image_file = models.ImageField(upload_to='order_images/')
+
+    def __str__(self):
+        return f"Image for Order #{self.order.id} - {self.image_file.name}"
+
+class Video(models.Model):
+    order = models.ForeignKey(Order, related_name='videos', on_delete=models.CASCADE)
+    video_file = models.FileField(upload_to='order_videos/')
+
+    def __str__(self):
+        return f"Video for Order #{self.order.id} - {self.video_file.name}"
+    
 
 class Proposal(models.Model):
     owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
