@@ -2,7 +2,6 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model  
 from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job, Appeal, Review, Image, Video
 from .status import RatingChoices
-from django.core.files.base import ContentFile
 
 
 User = get_user_model()
@@ -29,14 +28,19 @@ class BankCardSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     rating = serializers.ChoiceField(choices=RatingChoices.choices, required=False)
     job = serializers.PrimaryKeyRelatedField(queryset=Job.objects.all())
+    whom = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
         fields = ['id', 'owner', 'whom', 'comment', 'rating', 'job']
         extra_kwargs = {
             'owner': {'read_only': True},
-            'whom': {'read_only': True}
+            'whom': {'read_only': True}  # No need to make it read-only if you use SerializerMethodField
         }
+
+    def get_whom(self, obj):
+        # Get the user_id of the owner associated with the whom (Cv) instance
+        return obj.whom.owner.user_id if obj.whom else None
 
     def create(self, validated_data):
         request = self.context['request']
@@ -62,7 +66,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         whom.update_rating()
 
         return review
-    
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         request = self.context['request']
@@ -91,9 +95,9 @@ class CvSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        request = self.context['request']
+        request = self.context.get('request')
         
-        if request.method == 'GET':
+        if request and request.method == 'GET':
             representation.pop('owner', None)
         
         return representation
@@ -110,8 +114,10 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'user_id', 'first_name', 'last_name', 'full_name', 'password',
             'phone_number', 'birth_date', 'date_created', 'language', 'roles', 'bank_card', 'cv'
         )
-        extra_kwargs = {'password': {'write_only': True}}
-
+        extra_kwargs = {
+            'password': {'write_only': True, 'required': True},  # Make password required
+            'user_id': {'required': True}  # Make user_id required
+        }
 
     def create(self, validated_data):
         roles = validated_data.pop('roles', [])
@@ -156,9 +162,10 @@ class CategorySerializer(serializers.ModelSerializer):
 class ProposalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Proposal
-        fields = '__all__'
+        fields = ['id', 'order', 'message', 'price', 'status', 'created_at', 'owner']
         extra_kwargs = {
-            'owner': {'read_only': True} 
+            'order': {'required': True},
+            'owner': {'read_only': True}
         }
 
     def to_representation(self, instance):
@@ -182,16 +189,16 @@ class VideoSerializer(serializers.ModelSerializer):
         fields = ['id', 'video_file']
 
 
-
 class OrderSerializer(serializers.ModelSerializer):
     images = ImageSerializer(many=True, read_only=True)
     videos = VideoSerializer(many=True, read_only=True)
     image_files = serializers.ListField(child=serializers.ImageField(), write_only=True, required=False)
     video_files = serializers.ListField(child=serializers.FileField(), write_only=True, required=False)
+    proposals = ProposalSerializer(many=True, read_only=True)  
 
     class Meta:
         model = Order
-        fields = ['id', 'description', 'location', 'location_link', 'price', 'status', 'created_at', 'owner', 'category', 'images', 'videos', 'image_files', 'video_files']
+        fields = ['id', 'description', 'location', 'location_link', 'price', 'status', 'created_at', 'owner', 'category', 'images', 'videos', 'image_files', 'video_files', 'proposals']
         extra_kwargs = {
             'owner': {'read_only': True}
         }
@@ -220,6 +227,8 @@ class OrderSerializer(serializers.ModelSerializer):
     
 
 class AppealSerializer(serializers.ModelSerializer):
+    whom = serializers.SerializerMethodField()  # Используем SerializerMethodField для вычисляемого поля
+
     class Meta:
         model = Appeal
         fields = ['id', 'job', 'problem', 'to', 'owner', 'whom']
@@ -227,6 +236,11 @@ class AppealSerializer(serializers.ModelSerializer):
                 'owner': {'read_only': True},
                 'whom': {'read_only': True}
             }
+            
+    def get_whom(self, obj):
+        # Get the user_id of the owner associated with the whom (Cv) instance
+        return obj.whom.owner.user_id if obj.whom else None
+
         
     def create(self, validated_data):
         request = self.context['request']
@@ -260,10 +274,10 @@ class AppealSerializer(serializers.ModelSerializer):
         return representation
 
 class JobSerializer(serializers.ModelSerializer):
-    appeals = AppealSerializer(many=True, read_only=True)
-    reviews = ReviewSerializer(many=True, read_only=True)
+    appeals = AppealSerializer(many=True, required=False, allow_null=True)
+    reviews = ReviewSerializer(many=True, required=False, allow_null=True)
     
     class Meta:
         model = Job
-        fields = ['id', 'order', 'proposal', 'price', 'status', 'created_at', 'assignee', 'status_history', 'appeals', 'reviews']
+        fields = ['id', 'order', 'proposal', 'price', 'status', 'created_at', 'assignee', 'status_history', 'appeals', 'reviews', 'payment_confirmed_by_customer', 'payment_confirmed_by_worker', 'payment_successful']
 

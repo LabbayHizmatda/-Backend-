@@ -10,7 +10,8 @@ from django.db.models import Q
 from .pagination import StandardResultsSetPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import CustomUserFilter, PassportFilter, OrderFilter, ProposalFilter, JobFilter, ReviewFilter, AppealFilter
-
+from .status import *
+from rest_framework.decorators import action
 
 User = get_user_model()
 
@@ -30,6 +31,7 @@ class UserViewSet(mixins.RetrieveModelMixin,
     pagination_class = StandardResultsSetPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = CustomUserFilter
+    queryset = User.objects.all()  
 
     def list(self, request, *args, **kwargs):
         user = request.user
@@ -127,6 +129,7 @@ class CvViewSet(viewsets.ModelViewSet):
     serializer_class = CvSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
+    queryset = Cv.objects.all()  # Ensure this is defined for DRF schema generation
 
     def list(self, request, *args, **kwargs):
         user = request.user
@@ -200,9 +203,9 @@ class ProposalViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         user = request.user
         if 'Admin' in user.roles:
-            queryset = Proposal.objects.all()
+            queryset = Proposal.objects.select_related('order').all()
         else:
-            queryset = Proposal.objects.filter(owner=user)
+            queryset = Proposal.objects.select_related('order').filter(owner=user)
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -224,7 +227,11 @@ class ProposalViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Откликнуться может только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
 
         if not Cv.objects.filter(owner=request.user).exists():
-            return Response({"detail": "Для создания отлика у пользователя должен быть создан CV."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Для создания отклика у пользователя должен быть создан CV."}, status=status.HTTP_400_BAD_REQUEST)
+
+        order = request.data.get('order')
+        if Proposal.objects.filter(owner=request.user, order=order).exists():
+            return Response({"detail": "Вы уже подали предложение на этот заказ."}, status=status.HTTP_400_BAD_REQUEST)
 
         return super().create(request, *args, **kwargs)
 
@@ -256,15 +263,16 @@ class JobViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = JobFilter
+    queryset = Job.objects.all()  # Ensure this is defined for DRF schema generation
 
     def list(self, request, *args, **kwargs):
         user = request.user
         if 'Admin' in user.roles:
-            queryset = Job.objects.all().select_related('order', 'proposal', 'assignee').prefetch_related('appeals', 'reviews')
+            queryset = Job.objects.all().select_related('order', 'proposal', 'assignee').prefetch_related('appeals')
         else:
             queryset = Job.objects.filter(
                 Q(proposal__owner=user) | Q(order__owner=user)
-            ).select_related('order', 'proposal', 'assignee').prefetch_related('appeals', 'reviews')
+            ).select_related('order', 'proposal', 'assignee').prefetch_related('appeals')
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -284,6 +292,81 @@ class JobViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(assignee=self.request.user)
 
+    @action(detail=True, methods=['post'], url_path='confirm-payment-customer')
+    def confirm_payment_customer(self, request, *args, **kwargs):
+        job = self.get_object()
+        if request.user != job.order.owner:
+            return Response({"detail": "Only the customer can confirm payment."}, status=status.HTTP_403_FORBIDDEN)
+        
+        job.payment_confirmed_by_customer = PaymentStatusChoices.APPROVED
+        job.save()
+        
+        serializer = self.get_serializer(job)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='confirm-payment-worker')
+    def confirm_payment_worker(self, request, *args, **kwargs):
+        job = self.get_object()
+        if request.user != job.assignee:
+            return Response({"detail": "Only the worker can confirm payment."}, status=status.HTTP_403_FORBIDDEN)
+        
+        job.payment_confirmed_by_worker = PaymentStatusChoices.APPROVED
+        job.save()
+        
+        serializer = self.get_serializer(job)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'], url_path='appeal')
+    def appeal(self, request, *args, **kwargs):
+        job = self.get_object()
+        user = request.user
+
+        # Извлекаем данные из массива 'appeals'
+        appeal_data = request.data.get('appeals', [{}])[0]  # Предполагается, что массив не пустой и содержит хотя бы один объект
+        appeal_type = appeal_data.get('to')
+        problem = appeal_data.get('problem', '')
+
+        # Validate appeal type
+        if appeal_type not in AppealTypeChoices.values:
+            return Response({"detail": "Invalid appeal type."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if appeal_type == AppealTypeChoices.PAYMENT and job.status != JobStatusChoices.WARNING:
+            return Response({"detail": "Can only report payment problems during PAYMENT status."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the appeal data
+        appeal_data = {
+            'job': job.id,
+            'owner': user.id,
+            'whom': job.proposal.owner.id if user == job.order.owner else job.order.owner.id,
+            'problem': problem,
+            'to': appeal_type
+        }
+
+        # Create the appeal
+        serializer = AppealSerializer(data=appeal_data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'], url_path='work-done')
+    def work_done(self, request, *args, **kwargs):
+        job = self.get_object()
+        
+        # if request.user != job.order.owner and request.user != job.assignee:
+        #     return Response({"detail": "Only the customer or worker can change the status."}, status=status.HTTP_403_FORBIDDEN)
+        
+        # if job.status == JobStatusChoices.PAYMENT:
+        #     return Response({"detail": "Job is already in PAYMENT status."}, status=status.HTTP_400_BAD_REQUEST)
+
+        job.status = JobStatusChoices.PAYMENT
+        job.save()
+
+        serializer = self.get_serializer(job)
+        return Response(serializer.data)
+    
+    
+
 
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
@@ -296,6 +379,7 @@ class AppealViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = AppealFilter
+    queryset = Appeal.objects.all()  # Add this line
 
     def list(self, request, *args, **kwargs):
         user = request.user
@@ -326,6 +410,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = ReviewFilter
+    queryset = Review.objects.all()  # Add this line
 
     def list(self, request, *args, **kwargs):
         user = request.user

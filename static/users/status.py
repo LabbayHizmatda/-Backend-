@@ -39,6 +39,13 @@ class JobStatusChoices(models.TextChoices):
     REVIEW = "review", "Review"
     Completed = "completed", "Completed"
 
+
 class AppealTypeChoices(models.TextChoices):
     PAYMENT = 'Payment', 'Оплата'
     JOB = 'Job', 'Работа'
+
+
+class PaymentStatusChoices(models.TextChoices):
+    APPROVED = "Approved", "approved"
+    PROBLEM = "Problem", "problem"
+    DEFAULT = "Default", "default"

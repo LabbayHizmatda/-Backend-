@@ -2,8 +2,8 @@ from django.core.validators import MinValueValidator
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.core.exceptions import ValidationError
-from .status import RoleChoices, LanguageChoices, JobStatusChoices, OrderStatusChoices, ProposalStatusChoices, RatingChoices, AppealTypeChoices
-from datetime import timezone
+from .status import RoleChoices, LanguageChoices, JobStatusChoices, OrderStatusChoices, ProposalStatusChoices, RatingChoices, AppealTypeChoices, PaymentStatusChoices
+from django.utils import timezone
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import Avg, Case, When, IntegerField
 
@@ -26,7 +26,7 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('roles', ['Admin']) 
         return self.create_user(user_id, password, **extra_fields)
-
+    
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     user_id = models.BigIntegerField(unique=True)
@@ -34,7 +34,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=30, blank=True)
     roles = ArrayField(models.CharField(max_length=20, choices=RoleChoices.choices), blank=True, default=list)
     phone_number = models.CharField(max_length=14, blank=True, null=True, unique=True)
-    language = models.CharField(max_length=20, choices=LanguageChoices.choices, blank=True)
+    language = models.CharField(max_length=20, choices=LanguageChoices.choices, blank=True, null=True)
     birth_date = models.DateField(null=True, blank=True)
     tg_username = models.CharField(max_length=30, blank=True, null=True)
     date_created = models.DateTimeField(auto_now_add=True, editable=True)
@@ -118,7 +118,7 @@ class BankCard(models.Model):
 
 class Cv(models.Model):
     owner = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
-    image = models.CharField(max_length=255, blank=True, null=True)
+    image = models.ImageField(upload_to='cv_images/', blank=True, null=True) 
     bio = models.TextField()
     rating = models.CharField(max_length=2, choices=RatingChoices.choices, default=RatingChoices.ONE)
     word_experience = models.IntegerField(default=0) 
@@ -242,8 +242,11 @@ class Job(models.Model):
     status = models.CharField(max_length=15, choices=JobStatusChoices.choices, default=JobStatusChoices.INPROGRESS)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    assignee = models.ForeignKey('CustomUser', on_delete=models.SET_NULL, null=True, related_name='assigned_jobs')
+    assignee = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, related_name='assigned_jobs')
     status_history = models.TextField(null=True, blank=True)
+    payment_confirmed_by_customer = models.CharField(max_length=15, choices=PaymentStatusChoices.choices, default=PaymentStatusChoices.DEFAULT)
+    payment_confirmed_by_worker = models.CharField(max_length=15, choices=PaymentStatusChoices.choices, default=PaymentStatusChoices.DEFAULT)
+    payment_successful = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Job for Order {self.order.id} - Status: {self.status}"
@@ -252,6 +255,7 @@ class Job(models.Model):
         if self.pk:
             old_instance = Job.objects.get(pk=self.pk)
             if old_instance.status != self.status:
+                # Ensure timezone is imported from django.utils
                 self.status_history = f"{timezone.now()}: {self.get_status_display()} -> {self.status}\n" + (self.status_history or "")
         super().save(*args, **kwargs)
 
@@ -263,7 +267,6 @@ class Job(models.Model):
             models.Index(fields=['created_at']),
             models.Index(fields=['assignee']),
         ]
-
 
 class Review(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='reviews')
