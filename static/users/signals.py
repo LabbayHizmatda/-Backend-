@@ -24,16 +24,23 @@ def create_job_on_proposal_approval(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender=Job)
-def update_status_on_payment_confirmed(sender, instance, **kwargs):
-    # Если оба подтвердили оплату
+def update_status_based_on_payment(sender, instance, **kwargs):
     if instance.payment_confirmed_by_customer == PaymentStatusChoices.APPROVED and instance.payment_confirmed_by_worker == PaymentStatusChoices.APPROVED:
         if instance.status == JobStatusChoices.PAYMENT:
             instance.status = JobStatusChoices.REVIEW
-    else:
-        # Если хотя бы один из пользователей сообщил о проблеме с оплатой, изменяем статус на WARNING
-        if instance.payment_confirmed_by_customer == PaymentStatusChoices.PROBLEM or instance.payment_confirmed_by_worker == PaymentStatusChoices.PROBLEM:
-            if instance.status == JobStatusChoices.PAYMENT:
-                instance.status = JobStatusChoices.WARNING
+        if instance.status == JobStatusChoices.WARNING:
+            instance.status = JobStatusChoices.REVIEW  
 
-    if instance.status != instance.__class__.objects.get(pk=instance.pk).status:
-        instance.save(update_fields=['status'])
+    elif instance.payment_confirmed_by_customer == PaymentStatusChoices.PROBLEM or instance.payment_confirmed_by_worker == PaymentStatusChoices.PROBLEM:
+        if instance.status == JobStatusChoices.PAYMENT:
+            instance.status = JobStatusChoices.WARNING
+        
+    if instance.pk and instance.status != Job.objects.get(pk=instance.pk).status:
+        instance.save(update_fields=['status', 'status_history'])
+
+
+@receiver(post_save, sender=Job)
+def update_job_status_to_completed(sender, instance, **kwargs):
+    if instance.review_written_by_customer and instance.review_written_by_worker:
+        instance.status = JobStatusChoices.COMPLETED
+        instance.save(update_fields=['status', 'status_history'])

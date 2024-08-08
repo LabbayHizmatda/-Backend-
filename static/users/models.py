@@ -244,10 +244,14 @@ class Job(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     assignee = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, related_name='assigned_jobs')
     status_history = models.TextField(null=True, blank=True)
+
+
     payment_confirmed_by_customer = models.CharField(max_length=15, choices=PaymentStatusChoices.choices, default=PaymentStatusChoices.DEFAULT)
     payment_confirmed_by_worker = models.CharField(max_length=15, choices=PaymentStatusChoices.choices, default=PaymentStatusChoices.DEFAULT)
-    payment_successful = models.BooleanField(default=False)
 
+    review_written_by_customer = models.BooleanField(default=False)
+    review_written_by_worker = models.BooleanField(default=False)
+    
     def __str__(self):
         return f"Job for Order {self.order.id} - Status: {self.status}"
 

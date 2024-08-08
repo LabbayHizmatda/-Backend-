@@ -227,7 +227,7 @@ class OrderSerializer(serializers.ModelSerializer):
     
 
 class AppealSerializer(serializers.ModelSerializer):
-    whom = serializers.SerializerMethodField()  # Используем SerializerMethodField для вычисляемого поля
+    whom = serializers.SerializerMethodField() 
 
     class Meta:
         model = Appeal
@@ -238,7 +238,6 @@ class AppealSerializer(serializers.ModelSerializer):
             }
             
     def get_whom(self, obj):
-        # Get the user_id of the owner associated with the whom (Cv) instance
         return obj.whom.owner.user_id if obj.whom else None
 
         
@@ -279,5 +278,5 @@ class JobSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Job
-        fields = ['id', 'order', 'proposal', 'price', 'status', 'created_at', 'assignee', 'status_history', 'appeals', 'reviews', 'payment_confirmed_by_customer', 'payment_confirmed_by_worker', 'payment_successful']
+        fields = ['id', 'order', 'proposal', 'price', 'status', 'created_at', 'assignee', 'status_history', 'appeals', 'reviews', 'payment_confirmed_by_customer', 'payment_confirmed_by_worker', 'review_written_by_worker', 'review_written_by_customer']
 

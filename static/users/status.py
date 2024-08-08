@@ -23,13 +23,14 @@ class RatingChoices(models.TextChoices):
 class OrderStatusChoices(models.TextChoices):
     OPEN = "open", "Open"
     Closed = "closed", "Closed"
+    JOB = "job", "Job"
 
 
 class ProposalStatusChoices(models.TextChoices):
     APPROVED = "approved", "Approved"
     REJECTED = "rejected", "Rejected"
     WAITING = "waiting", "Waiting"
-    OFFERED = "offered", "Offered"
+    CANCELED = "canceled", "Canceled"
 
 
 class JobStatusChoices(models.TextChoices):
@@ -37,7 +38,7 @@ class JobStatusChoices(models.TextChoices):
     PAYMENT = "payment", "Payment"
     WARNING = "warning", "Warning"
     REVIEW = "review", "Review"
-    Completed = "completed", "Completed"
+    COMPLETED = "completed", "Completed"
 
 
 class AppealTypeChoices(models.TextChoices):

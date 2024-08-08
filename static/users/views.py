@@ -12,6 +12,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .filters import CustomUserFilter, PassportFilter, OrderFilter, ProposalFilter, JobFilter, ReviewFilter, AppealFilter
 from .status import *
 from rest_framework.decorators import action
+from django.shortcuts import get_object_or_404
 
 User = get_user_model()
 
@@ -129,7 +130,7 @@ class CvViewSet(viewsets.ModelViewSet):
     serializer_class = CvSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
-    queryset = Cv.objects.all()  # Ensure this is defined for DRF schema generation
+    queryset = Cv.objects.all()  
 
     def list(self, request, *args, **kwargs):
         user = request.user
@@ -192,6 +193,34 @@ class OrderViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    @action(detail=True, methods=['post'], url_path='cancel')
+    def deactivate_order(self, request, *args, **kwargs):
+        order = self.get_object()
+        if request.user == order.owner or 'Admin' in request.user.roles:
+            if order.status == OrderStatusChoices.OPEN:
+                order.status = OrderStatusChoices.CLOSED
+                order.save()
+                serializer = self.get_serializer(order)
+                return Response(serializer.data)
+            else:
+                return Response({"detail": "Order is already closed or in an invalid state."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+    
+    @action(detail=True, methods=['post'], url_path='restore')
+    def activate_order(self, request, *args, **kwargs):
+        order = self.get_object()
+        if request.user == order.owner or 'Admin' in request.user.roles:
+            if order.status == OrderStatusChoices.CLOSED:
+                order.status = OrderStatusChoices.OPEN
+                order.save()
+                serializer = self.get_serializer(order)
+                return Response(serializer.data)
+            else:
+                return Response({"detail": "Order is already open or in an invalid state."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
 
 class ProposalViewSet(viewsets.ModelViewSet):
     serializer_class = ProposalSerializer
@@ -200,12 +229,15 @@ class ProposalViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = ProposalFilter
 
+    def get_queryset(self):
+        user = self.request.user
+        if 'Admin' in user.roles:
+            return Proposal.objects.select_related('order').all()
+        return Proposal.objects.select_related('order').filter(owner=user)
+
     def list(self, request, *args, **kwargs):
         user = request.user
-        if 'Admin' in user.roles:
-            queryset = Proposal.objects.select_related('order').all()
-        else:
-            queryset = Proposal.objects.select_related('order').filter(owner=user)
+        queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -219,24 +251,66 @@ class ProposalViewSet(viewsets.ModelViewSet):
         if 'Admin' in user.roles or instance.owner == user:
             serializer = self.get_serializer(instance)
             return Response(serializer.data)
-        else:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def create(self, request, *args, **kwargs):
-        if 'Worker' not in request.user.roles:
-            return Response({"detail": "Откликнуться может только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
+        user = request.user
 
-        if not Cv.objects.filter(owner=request.user).exists():
+        if not Cv.objects.filter(owner=user).exists():
             return Response({"detail": "Для создания отклика у пользователя должен быть создан CV."}, status=status.HTTP_400_BAD_REQUEST)
 
-        order = request.data.get('order')
-        if Proposal.objects.filter(owner=request.user, order=order).exists():
+        if 'Worker' not in user.roles:
+            return Response({"detail": "Откликнуться может только человек с ролью Worker."}, status=status.HTTP_403_FORBIDDEN)
+
+        order_id = request.data.get('order')
+        order = get_object_or_404(Order, id=order_id)
+
+        if order.status != OrderStatusChoices.OPEN:
+            return Response({"detail": "Можно подать предложение только на открытые заказы."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if Proposal.objects.filter(owner=user, order=order).exists():
             return Response({"detail": "Вы уже подали предложение на этот заказ."}, status=status.HTTP_400_BAD_REQUEST)
 
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=['patch'], url_path='cancel')
+    def cancel_proposal(self, request, *args, **kwargs):
+        proposal = self.get_object()
+        
+        if proposal.status != ProposalStatusChoices.WAITING:
+            return Response({"detail": "Only proposals with WAITING status can be canceled."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        proposal.status = ProposalStatusChoices.CANCELED
+        proposal.save()
+        
+        return Response({"detail": "Proposal status updated to CANCELED."}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['patch'], url_path='restore')
+    def restore_proposal(self, request, *args, **kwargs):
+        proposal = self.get_object()
+        
+        if proposal.status != ProposalStatusChoices.CANCELED:
+            return Response({"detail": "Only canceled proposals can be restored."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        proposal.status = ProposalStatusChoices.WAITING
+        proposal.save()
+        
+        return Response({"detail": "Proposal status updated to WAITING."}, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve_proposal(self, request, *args, **kwargs):
+        proposal = self.get_object()
+        
+        if proposal.status == ProposalStatusChoices.CANCELED or proposal.status == ProposalStatusChoices.REJECTED:
+            return Response({"detail": "You can't approve CANCELED or REJECTED proposal"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        proposal.status = ProposalStatusChoices.APPROVED
+        proposal.save()
+        
+        return Response({"detail": "Proposal status updated to WAITING."}, status=status.HTTP_200_OK)
 
 
 class ProposalUpdateStatusView(generics.UpdateAPIView):
@@ -263,7 +337,7 @@ class JobViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = JobFilter
-    queryset = Job.objects.all()  # Ensure this is defined for DRF schema generation
+    queryset = Job.objects.all() 
 
     def list(self, request, *args, **kwargs):
         user = request.user
@@ -292,6 +366,16 @@ class JobViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(assignee=self.request.user)
 
+    @action(detail=True, methods=['post'], url_path='work-done')
+    def work_done(self, request, *args, **kwargs):
+        job = self.get_object()
+
+        job.status = JobStatusChoices.PAYMENT
+        job.save()
+
+        serializer = self.get_serializer(job)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['post'], url_path='confirm-payment-customer')
     def confirm_payment_customer(self, request, *args, **kwargs):
         job = self.get_object()
@@ -316,24 +400,52 @@ class JobViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(job)
         return Response(serializer.data)
     
+    @action(detail=True, methods=['post'], url_path='problem-payment-customer')
+    def problem_payment_customer(self, request, *args, **kwargs):
+        job = self.get_object()
+        if request.user != job.order.owner:
+            return Response({"detail": "Only the customer can confirm payment."}, status=status.HTTP_403_FORBIDDEN)
+        
+        job.payment_confirmed_by_customer = PaymentStatusChoices.PROBLEM
+        job.save()
+        
+        serializer = self.get_serializer(job)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='problem-payment-worker')
+    def problem_payment_worker(self, request, *args, **kwargs):
+        job = self.get_object()
+        if request.user != job.assignee:
+            return Response({"detail": "Only the worker can confirm payment."}, status=status.HTTP_403_FORBIDDEN)
+        
+        job.payment_confirmed_by_worker = PaymentStatusChoices.PROBLEM
+        job.save()
+        
+        serializer = self.get_serializer(job)
+        return Response(serializer.data)
+    
     @action(detail=True, methods=['post'], url_path='appeal')
     def appeal(self, request, *args, **kwargs):
         job = self.get_object()
         user = request.user
 
-        # Извлекаем данные из массива 'appeals'
-        appeal_data = request.data.get('appeals', [{}])[0]  # Предполагается, что массив не пустой и содержит хотя бы один объект
+        job_status_choice = JobStatusChoices
+        appeal_status_choice = AppealTypeChoices
+
+        appeal_data = request.data.get('appeals', [{}])[0]
         appeal_type = appeal_data.get('to')
         problem = appeal_data.get('problem', '')
 
-        # Validate appeal type
-        if appeal_type not in AppealTypeChoices.values:
+        if job.status == job_status_choice.REVIEW:
+            return Response({"detail": "Вы уже почти закончили работу, так как вы уже подтвердили что оплата закончена. Осталось только написать отзывы и закрыть работу."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if job.status != job_status_choice.WARNING:
+            job.status = job_status_choice.WARNING
+            job.save()
+
+        if appeal_type not in appeal_status_choice.values:
             return Response({"detail": "Invalid appeal type."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if appeal_type == AppealTypeChoices.PAYMENT and job.status != JobStatusChoices.WARNING:
-            return Response({"detail": "Can only report payment problems during PAYMENT status."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Create the appeal data
         appeal_data = {
             'job': job.id,
             'owner': user.id,
@@ -342,31 +454,45 @@ class JobViewSet(viewsets.ModelViewSet):
             'to': appeal_type
         }
 
-        # Create the appeal
         serializer = AppealSerializer(data=appeal_data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    @action(detail=True, methods=['post'], url_path='work-done')
-    def work_done(self, request, *args, **kwargs):
+    @action(detail=True, methods=['post'], url_path='review')
+    def review(self, request, *args, **kwargs):
         job = self.get_object()
+        user = request.user
+
+        if job.status != JobStatusChoices.REVIEW:
+            return Response({"detail": "Для создание отзыва, Job должен быть на статусе REVIEW."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if 'Customer' in user.roles:
+            if job.review_written_by_customer:
+                return Response({"detail": "Вы уже до этого писали отзыв."}, status=status.HTTP_400_BAD_REQUEST)
+            job.review_written_by_customer = True
+        elif 'Worker' in user.roles:
+            if job.review_written_by_worker:
+                return Response({"detail": "Вы уже до этого писали отзыв."}, status=status.HTTP_400_BAD_REQUEST)
+            job.review_written_by_worker = True
+        else:
+            return Response({"detail": "Пользователь который пишет отзыв должен быть Работадателем или Работником"}, status=status.HTTP_403_FORBIDDEN)
+
+        review_data = {
+            'job': job.id,
+            'whom': job.proposal.owner.id if 'Customer' in user.roles else job.order.owner.id,
+            'rating': request.data.get('rating'),
+            'comment': request.data.get('comment', '')
+        }
+
+        serializer = ReviewSerializer(data=review_data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            job.save()  
+            return Response({"detail": "Review submitted successfully."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        # if request.user != job.order.owner and request.user != job.assignee:
-        #     return Response({"detail": "Only the customer or worker can change the status."}, status=status.HTTP_403_FORBIDDEN)
-        
-        # if job.status == JobStatusChoices.PAYMENT:
-        #     return Response({"detail": "Job is already in PAYMENT status."}, status=status.HTTP_400_BAD_REQUEST)
-
-        job.status = JobStatusChoices.PAYMENT
-        job.save()
-
-        serializer = self.get_serializer(job)
-        return Response(serializer.data)
-    
-    
-
 
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
@@ -379,7 +505,7 @@ class AppealViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = AppealFilter
-    queryset = Appeal.objects.all()  # Add this line
+    queryset = Appeal.objects.all()  
 
     def list(self, request, *args, **kwargs):
         user = request.user
@@ -410,7 +536,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = ReviewFilter
-    queryset = Review.objects.all()  # Add this line
+    queryset = Review.objects.all()
 
     def list(self, request, *args, **kwargs):
         user = request.user
