@@ -1,5 +1,5 @@
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import RegisterView, UserViewSet, PassportViewSet, BankCardViewSet, CvViewSet, CategoryViewSet, JobViewSet, OrderViewSet, ProposalViewSet, ProposalUpdateStatusView, AppealViewSet, ReviewViewSet
+from .views import RegisterView, UserViewSet, PassportViewSet, BankCardViewSet, CvViewSet, CategoryViewSet, JobViewSet, OrderViewSet, ProposalViewSet, AppealViewSet, ReviewViewSet
 from django.conf.urls.static import static
 from django.conf import settings
 from django.urls import path, include
@@ -23,6 +23,4 @@ urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
 
     path('', include(router.urls)),
-
-    path('proposals/<int:pk>/update_status/', ProposalUpdateStatusView.as_view(), name='proposal-update-status'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -312,24 +312,6 @@ class ProposalViewSet(viewsets.ModelViewSet):
         proposal.save()
         
         return Response({"detail": "Proposal status updated to WAITING."}, status=status.HTTP_200_OK)
-
-
-class ProposalUpdateStatusView(generics.UpdateAPIView):
-    queryset = Proposal.objects.all()
-    serializer_class = ProposalSerializer
-    permission_classes = [IsAuthenticated]
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        
-        if instance:
-            instance.status = request.data.get('status', instance.status)
-            instance.save()
-            serializer = self.get_serializer(instance)
-            return Response(serializer.data)
-        else:
-            return Response({"detail": "No Proposal matches the given query."}, status=status.HTTP_404_NOT_FOUND)
         
 
 class JobViewSet(viewsets.ModelViewSet):
