@@ -1,27 +1,22 @@
 from rest_framework import serializers
-from django.contrib.auth import get_user_model  
+from django.contrib.auth import get_user_model
 from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job, Appeal, Review, Image, Video
 from .status import RatingChoices
 
-
 User = get_user_model()
-
 
 class BankCardSerializer(serializers.ModelSerializer):
     class Meta:
         model = BankCard
         fields = '__all__'
         extra_kwargs = {
-            'owner': {'read_only': True} 
+            'owner': {'read_only': True}
         }
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        request = self.context['request']
-        
-        if request.method == 'GET':
+        if self.context.get('hide_owner'):
             representation.pop('owner', None)
-        
         return representation
 
 
@@ -35,11 +30,10 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = ['id', 'owner', 'whom', 'comment', 'rating', 'job']
         extra_kwargs = {
             'owner': {'read_only': True},
-            'whom': {'read_only': True}  # No need to make it read-only if you use SerializerMethodField
+            'whom': {'read_only': True}
         }
 
     def get_whom(self, obj):
-        # Get the user_id of the owner associated with the whom (Cv) instance
         return obj.whom.owner.user_id if obj.whom else None
 
     def create(self, validated_data):
@@ -62,18 +56,13 @@ class ReviewSerializer(serializers.ModelSerializer):
         validated_data['whom'] = whom
 
         review = Review.objects.create(**validated_data)
-        
         whom.update_rating()
-
         return review
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        request = self.context['request']
-        
-        if request.method == 'GET':
+        if self.context.get('hide_owner'):
             representation.pop('owner', None)
-        
         return representation
 
 
@@ -92,16 +81,12 @@ class CvSerializer(serializers.ModelSerializer):
 
     def get_appeals(self, obj):
         return obj.appeals.count()
-    
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        request = self.context.get('request')
-        
-        if request and request.method == 'GET':
+        if self.context.get('hide_owner'):
             representation.pop('owner', None)
-        
         return representation
-
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -115,8 +100,8 @@ class UserSerializer(serializers.ModelSerializer):
             'phone_number', 'birth_date', 'date_created', 'language', 'roles', 'bank_card', 'cv'
         )
         extra_kwargs = {
-            'password': {'write_only': True, 'required': True},  # Make password required
-            'user_id': {'required': True}  # Make user_id required
+            'password': {'write_only': True, 'required': True},
+            'user_id': {'required': True}
         }
 
     def create(self, validated_data):
@@ -130,8 +115,7 @@ class UserSerializer(serializers.ModelSerializer):
             birth_date=validated_data.get('birth_date', None),
             language=validated_data.get('language', None),
         )
-        user.roles = roles
-        user.save()
+        user.roles.set(roles)
         return user
 
 
@@ -140,16 +124,13 @@ class PassportSerializer(serializers.ModelSerializer):
         model = Passport
         fields = '__all__'
         extra_kwargs = {
-            'owner': {'read_only': True} 
+            'owner': {'read_only': True}
         }
-    
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        request = self.context['request']
-        
-        if request.method == 'GET':
+        if self.context.get('hide_owner'):
             representation.pop('owner', None)
-        
         return representation
 
 
@@ -170,11 +151,8 @@ class ProposalSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        request = self.context['request']
-        
-        if request.method == 'GET':
+        if self.context.get('hide_owner'):
             representation.pop('owner', None)
-        
         return representation
 
 
@@ -182,6 +160,7 @@ class ImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Image
         fields = ['id', 'image_file']
+
 
 class VideoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -194,7 +173,7 @@ class OrderSerializer(serializers.ModelSerializer):
     videos = VideoSerializer(many=True, read_only=True)
     image_files = serializers.ListField(child=serializers.ImageField(), write_only=True, required=False)
     video_files = serializers.ListField(child=serializers.FileField(), write_only=True, required=False)
-    proposals = ProposalSerializer(many=True, read_only=True)  
+    proposals = ProposalSerializer(many=True, read_only=True)
 
     class Meta:
         model = Order
@@ -218,29 +197,25 @@ class OrderSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        request = self.context['request']
-        
-        if request.method == 'GET':
+        if self.context.get('hide_owner'):
             representation.pop('owner', None)
-        
         return representation
-    
+
 
 class AppealSerializer(serializers.ModelSerializer):
-    whom = serializers.SerializerMethodField() 
+    whom = serializers.SerializerMethodField()
 
     class Meta:
         model = Appeal
         fields = ['id', 'job', 'problem', 'to', 'owner', 'whom']
         extra_kwargs = {
-                'owner': {'read_only': True},
-                'whom': {'read_only': True}
-            }
-            
+            'owner': {'read_only': True},
+            'whom': {'read_only': True}
+        }
+
     def get_whom(self, obj):
         return obj.whom.owner.user_id if obj.whom else None
 
-        
     def create(self, validated_data):
         request = self.context['request']
         user = request.user
@@ -251,11 +226,10 @@ class AppealSerializer(serializers.ModelSerializer):
         elif 'Worker' in user.roles:
             recipient_user = job.order.owner
         else:
-            raise serializers.ValidationError("User must be either a Customer or a Worker to create a review.")
+            raise serializers.ValidationError("User must be either a Customer or a Worker to create an appeal.")
         
-        try:
-            whom = Cv.objects.get(owner=recipient_user) 
-        except Cv.DoesNotExist:
+        whom = Cv.objects.filter(owner=recipient_user).first()
+        if not whom:
             raise serializers.ValidationError("Cv instance for the recipient user does not exist.")
         
         validated_data['owner'] = user
@@ -265,12 +239,10 @@ class AppealSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        request = self.context['request']
-        
-        if request.method == 'GET':
+        if self.context.get('hide_owner'):
             representation.pop('owner', None)
-        
         return representation
+
 
 class JobSerializer(serializers.ModelSerializer):
     appeals = AppealSerializer(many=True, required=False, allow_null=True)
@@ -278,5 +250,6 @@ class JobSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Job
-        fields = ['id', 'order', 'proposal', 'price', 'status', 'created_at', 'assignee', 'status_history', 'appeals', 'reviews', 'payment_confirmed_by_customer', 'payment_confirmed_by_worker', 'review_written_by_worker', 'review_written_by_customer']
-
+        fields = ['id', 'order', 'proposal', 'price', 'status', 'created_at', 'assignee',\
+                  'status_history', 'appeals', 'reviews', 'payment_confirmed_by_customer',\
+                  'payment_confirmed_by_worker', 'review_written_by_worker', 'review_written_by_customer']
