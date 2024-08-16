@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import CustomUser, Passport, BankCard, Cv, Category, Order, Proposal, Job, Appeal, Review, Image, Video
 from .status import RatingChoices
+from django.contrib.auth.hashers import make_password
 
 User = get_user_model()
 
@@ -106,7 +107,10 @@ class UserSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         roles = validated_data.pop('roles', [])
-        user = CustomUser.objects.create_user(
+
+        validated_data['password'] = make_password(validated_data['password'])
+
+        user = CustomUser.objects.create(
             user_id=validated_data['user_id'],
             password=validated_data['password'],
             first_name=validated_data.get('first_name', ''),
@@ -114,8 +118,9 @@ class UserSerializer(serializers.ModelSerializer):
             phone_number=validated_data.get('phone_number', None),
             birth_date=validated_data.get('birth_date', None),
             language=validated_data.get('language', None),
+            roles=roles 
         )
-        user.roles.set(roles)
+
         return user
 
 

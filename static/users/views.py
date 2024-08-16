@@ -56,6 +56,20 @@ class UserViewSet(mixins.RetrieveModelMixin,
             return Response(serializer.data)
         else:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def add_role(self, request, pk=None):
+        user = self.get_object()
+
+        if 'Worker' in user.roles and 'Customer' not in user.roles:
+            user.roles.append('Customer')
+        elif 'Customer' in user.roles and 'Worker' not in user.roles:
+            user.roles.append('Worker')
+        else:
+            return Response({"detail": "У этого пользователя уже есть аккаунт с таким ролем"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.save()
+        return Response({"detail": "Role added successfully."}, status=status.HTTP_200_OK)
         
 
 class PassportViewSet(viewsets.ModelViewSet):
