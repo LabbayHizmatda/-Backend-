@@ -328,7 +328,7 @@ class ProposalViewSet(viewsets.ModelViewSet):
         return Response({"detail": "Proposal status updated to WAITING."}, status=status.HTTP_200_OK)
         
 
-class JobViewSet(viewsets.ModelViewSet):
+class JobViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = JobSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
@@ -359,9 +359,6 @@ class JobViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         else:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
-    def perform_create(self, serializer):
-        serializer.save(assignee=self.request.user)
 
     @action(detail=True, methods=['post'], url_path='work-done')
     def work_done(self, request, *args, **kwargs):
@@ -434,7 +431,7 @@ class JobViewSet(viewsets.ModelViewSet):
         problem = appeal_data.get('problem', '')
 
         if job.status == job_status_choice.REVIEW:
-            return Response({"detail": "Вы уже почти закончили работу, так как вы уже подтвердили что оплата закончена. Осталось только написать отзывы и закрыть работу."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Вы уже почти закончили работу, так как вы уже подтвердили что оплата закончена. Осталось только написать отзывы и окончить работу."}, status=status.HTTP_400_BAD_REQUEST)
 
         if job.status != job_status_choice.WARNING:
             job.status = job_status_choice.WARNING
@@ -494,6 +491,7 @@ class JobViewSet(viewsets.ModelViewSet):
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated, IsAdmin]
+    queryset = Category.objects.all()  
 
 
 class AppealViewSet(viewsets.ModelViewSet):

@@ -1,27 +1,89 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.urls import reverse
-from .models import *
+from django.contrib.auth import get_user_model
 
-class CustomUserModelCreateTests(APITestCase):
+User = get_user_model()
+
+class APITestCases(APITestCase):
+
     def setUp(self):
-        self.user_data = {
-            "user_id": 12321,
-            "first_name": "string",
-            "last_name": "string",
-            "password": "admin",
-            "phone_number": "+99898",
-            "birth_date": "2024-08-06",
-            "language": "Uzbek",
-            "roles": [
-                "Worker"
-            ]
-        }
+        # Создание пользователя
+        self.user = User.objects.create_user(
+            user_id='1123344',
+            password='testpassword',
+            roles = ['Admin']
 
-    def test_register_user(self):
-        response = self.client.post(reverse('register'), self.user_data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(CustomUser.objects.count(), 1)
-        self.assertEqual(CustomUser.objects.get().user_id, self.user_data['user_id'])
-    
-    
+        )
+        # Получение токена JWT
+        self.client.login(user_id='1123344', password='testpassword')
+
+
+    def test_user_list_get(self):
+        url = reverse('user-list')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+    def test_passport_list_get(self):
+        url = reverse('passport-list')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+    def test_bank_card_list_get(self):
+        url = reverse('bank-card-list')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+    def test_cv_list_get(self):
+        url = reverse('cv-list')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+    def test_category_list_get(self):
+        url = reverse('category-list')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+    def test_order_list_get(self):
+        url = reverse('order-list')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+    def test_proposal_list_get(self):
+        url = reverse('proposal-list')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+    def test_job_list_get(self):
+        url = reverse('job-list')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+    def test_appeal_list_get(self):
+        url = reverse('appeal-list')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+    def test_review_list_get(self):
+        url = reverse('review-list')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
