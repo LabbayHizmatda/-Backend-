@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -28,9 +29,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_celery_beat',
 
     'users',
-
+    'stats',
     'rest_framework',
     'drf_yasg',
     'silk',
@@ -49,14 +51,6 @@ MIDDLEWARE = [
     'silk.middleware.SilkyMiddleware',
 
 ]
-
-
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-#         'LOCATION': os.getenv('CACHE_URL', 'redis://localhost:6379/1'),
-#     }
-# }
 
 
 ROOT_URLCONF = 'static.urls'
@@ -163,4 +157,18 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+}
+
+CELERY_BROKER_URL = 'redis://redis:6379/0'  # Указываем URL брокера сообщений
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'  # Указываем URL хранилища результатов
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+CELERY_BEAT_SCHEDULE = {
+    'update-daily-stats-at-midnight': {
+        'task': 'stats.tasks.update_daily_stats',
+        'schedule': crontab(hour=0, minute=0),  # Запуск в полночь каждый день
+    },
 }
