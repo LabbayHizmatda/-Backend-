@@ -1,16 +1,26 @@
 version: '3.9'
 
 services:
-  redis:
-    container_name: LabbayHizmatda_redis
-    image: redis:latest
+  web:
+    container_name: web
+    build: .
+    command: sh -c "cron && ./wait-for-it.sh db:5432 -- sh -c 'python manage.py migrate && python manage.py runserver 0.0.0.0:8000'"
+    volumes:
+      - .:/code
     ports:
-      - "6379:6379"
-    networks:
-      - mynetwork
+      - "8000:8000"
+    environment:
+      DB_NAME: rest-auth
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: db
+      DB_PORT: 5432
+      CACHE_URL: redis://redis:6379/1 
+    depends_on:
+      - db
 
   db:
-    container_name: LabbayHizmatda_db
+    container_name: db
     image: postgres:16
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -20,32 +30,46 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
-    networks:
-      - mynetwork
 
-  web:
+  celery:
+    container_name: Celery
     build: .
-    container_name: LabbayHizmatda_web
+    command: celery -A static worker --loglevel=info
     volumes:
       - .:/code
+    depends_on:
+      - redis
+      - db
+
+  celery-beat:
+    container_name: Celery-beat
+    build: .
+    command: celery -A static beat --loglevel=info
+    volumes:
+      - .:/code
+    depends_on:
+      - redis
+      - db
+
+  redis:
+    container_name: Redis
+    image: redis:latest
     ports:
-      - "8000:8000"
+      - "6379:6379"
+
+  cron:
+    container_name: Cron
+    build: .
+    command: sh -c "cron && tail -f /var/log/cron.log"
+    volumes:
+      - .:/code
     depends_on:
       - db
-      - redis
-    environment:
-      DB_NAME: rest-auth
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_HOST: db
-      DB_PORT: 5432
-      CACHE_URL: redis://redis:6379/1 
-    networks:
-      - mynetwork
 
 networks:
-  mynetwork:
+  default:
     driver: bridge
 
 volumes:
   pgdata:
+

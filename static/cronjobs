@@ -1,0 +1,2 @@
+# cronjobs
+0 0 * * * /usr/local/bin/python /app/manage.py update_daily_stats >> /var/log/cron.log 2>&1
